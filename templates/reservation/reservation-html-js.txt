@@ -1,0 +1,313 @@
+{% extends 'base/base.html' %}
+
+{% block h3 %}Testbed Reservation Table{% endblock %}
+
+
+{% block content %}
+
+
+<div class="container mb-4">
+    <div class="row align-items-end mb-2">
+      <div class="col-md-4">
+        <div class="form-group mb-0">
+          <label for="start-date">Start Date:</label>
+          <input type="date" id="start-date" class="form-control">
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-group mb-0">
+          <label for="end-date">End Date:</label>
+          <input type="date" id="end-date" class="form-control">
+        </div>
+      </div>
+      <div class="col-md-4">
+        <button id="show-table" class="btn btn-primary w-100">Show Table</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-12">
+        <!-- <div id="date-display" class="text-center"></div> -->
+        <div id="date-display" class="text-center p-2 bg-light border rounded"></div>
+      </div>
+    </div>
+  </div>
+<style>
+    .reservation-block {
+        border: 1px solid #ddd;
+        padding: 5px;
+        border-radius: 5px;
+        margin-bottom: 5px;
+    }
+    .devices-list {
+        color: #666;
+        font-style: italic;
+        font-size: 0.8em;
+    }
+    .table td {
+        vertical-align: top;
+    }
+</style>
+
+<div class="card">
+    <div class="card-body">
+        <h2 class="card-title">Reservation Table</h2>
+        <div class="table-responsive">
+            <table id="reservation-table" class="table table-bordered">
+                <thead>
+                    <tr id="date-header">
+                        <th>Testbed</th>
+                        <!-- Date headers will be dynamically added here -->
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Testbed rows and reservation data will be dynamically added here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap 5 Modal for editing reservation -->
+<div class="modal fade" id="reservationModal" tabindex="-1" aria-labelledby="reservationModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reservationModalLabel">Edit Reservation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editReservationForm">
+                    <input type="hidden" id="reservationId">
+                    <div class="mb-3">
+                        <label for="editUser" class="form-label">User</label>
+                        <input type="text" class="form-control" id="editUser" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editStartTime" class="form-label">Start Time</label>
+                        <input type="datetime-local" class="form-control" id="editStartTime" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editEndTime" class="form-label">End Time</label>
+                        <input type="datetime-local" class="form-control" id="editEndTime" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editType" class="form-label">Reservation Type</label>
+                        <select class="form-select" id="editType" required>
+                            <option value="Integration">Integration</option>
+                            <option value="Regression">Regression</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editDevices" class="form-label">Devices</label>
+                        <select multiple class="form-select" id="editDevices" required>
+                            <!-- Options will be populated dynamically -->
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="updateReservation">Update</button>
+                <button type="button" class="btn btn-danger" id="deleteReservation">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const reservationTable = document.getElementById('reservation-table');
+    const dateHeader = document.getElementById('date-header');
+    const modal = new bootstrap.Modal(document.getElementById('reservationModal'));
+    const updateButton = document.getElementById('updateReservation');
+    const deleteButton = document.getElementById('deleteReservation');
+    const startDateInput = document.getElementById('start-date');
+    const endDateInput = document.getElementById('end-date');
+    const showTableButton = document.getElementById('show-table');
+    const dateDisplay = document.getElementById('date-display');
+
+    function initializeDateRange() {
+        fetch('{% url "get_allowed_period" %}')
+            .then(response => response.json())
+            .then(data => {
+                startDateInput.value = data.start_date;
+                endDateInput.value = data.end_date;
+                updateDateDisplay();
+                fetchReservations();
+            })
+            .catch(error => {
+                console.error("Error fetching allowed period:", error);
+            });
+    }
+
+    function updateDateDisplay() {
+        dateDisplay.textContent = `Selected range: ${startDateInput.value} to ${endDateInput.value}`;
+    }
+
+    startDateInput.addEventListener('change', updateDateDisplay);
+    endDateInput.addEventListener('change', updateDateDisplay);
+
+    showTableButton.addEventListener('click', fetchReservations);
+
+    function fetchReservations() {
+        const startDate = startDateInput.value;
+        const endDate = endDateInput.value;
+
+        if (!startDate || !endDate) {
+            console.error("Date range not set");
+            return;
+        }
+
+        fetch(`{% url "get_reservations" %}?start_date=${startDate}&end_date=${endDate}`)
+            .then(response => response.json())
+            .then(data => {
+                renderReservationTable(data, startDate, endDate);
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    function generateDateRange(start, end) {
+        let dates = [];
+        let currentDate = moment(start);
+        const endDate = moment(end);
+
+        while (currentDate <= endDate) {
+            dates.push(currentDate.format('YYYY-MM-DD'));
+            currentDate.add(1, 'days');
+        }
+
+        return dates;
+    }
+
+    function renderReservationTable(data, startDate, endDate) {
+        const testbeds = [...new Set(data.map(r => r.testbed))];
+        const dates = generateDateRange(startDate, endDate);
+
+        // Render date headers
+        dateHeader.innerHTML = '<th>Testbed</th>';
+        dates.forEach(date => {
+            dateHeader.innerHTML += `<th>${date}</th>`;
+        });
+
+        // Render testbed rows and reservation data
+        const tableBody = reservationTable.querySelector('tbody');
+        tableBody.innerHTML = '';
+        testbeds.forEach(testbed => {
+            let row = `<tr><td>${testbed}</td>`;
+            dates.forEach(date => {
+                const reservations = data.filter(r => r.testbed === testbed && r.date === date);
+                row += '<td>';
+                if (reservations.length > 0) {
+                    reservations.forEach(r => {
+                        const buttonClass = r.type === 'Integration' ? 'btn-success' : 'btn-primary';
+                        row += `
+                            <div class="reservation-block">
+                                <button class="btn ${buttonClass} btn-sm" 
+                                        onclick="openReservationModal(${r.id})">
+                                    ${r.user} - ${r.startTime}-${r.endTime}
+                                </button>
+                                <div class="devices-list">
+                                    ${r.devices ? r.devices.map(d => d.name).join(', ') : 'No devices'}
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    row += '<span class="text-muted">No reservations</span>';
+                }
+                row += '</td>';
+            });
+            row += '</tr>';
+            tableBody.innerHTML += row;
+        });
+    }
+
+    window.openReservationModal = function(reservationId) {
+        fetch(`{% url "get_reservation" reservation_id=0 %}`.replace('0', reservationId))
+            .then(response => response.json())
+            .then(reservation => {
+                document.getElementById('reservationId').value = reservation.id;
+                document.getElementById('editUser').value = reservation.user;
+                document.getElementById('editStartTime').value = reservation.startTime;
+                document.getElementById('editEndTime').value = reservation.endTime;
+                document.getElementById('editType').value = reservation.type;
+                
+                const devicesSelect = document.getElementById('editDevices');
+                devicesSelect.innerHTML = '';
+                if (reservation.devices && Array.isArray(reservation.devices)) {
+                    reservation.devices.forEach(device => {
+                        const option = new Option(device.name, device.id);
+                        option.selected = true;
+                        devicesSelect.add(option);
+                    });
+                }
+                
+                modal.show();
+            })
+            .catch(error => console.error('Error fetching reservation details:', error));
+    }
+
+    updateButton.addEventListener('click', function() {
+        const reservationId = document.getElementById('reservationId').value;
+        const formData = new FormData(document.getElementById('editReservationForm'));
+        
+        fetch(`{% url "update_reservation" reservation_id=0 %}`.replace('0', reservationId), {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                modal.hide();
+                fetchReservations();  // Refresh the table
+            } else {
+                console.error('Update failed:', data.errors);
+                alert('Failed to update reservation. Please try again.');
+            }
+        })
+        .catch(error => {
+            console.error('Error updating reservation:', error);
+            alert('An error occurred while updating the reservation.');
+        });
+    });
+
+    deleteButton.addEventListener('click', function() {
+        const reservationId = document.getElementById('reservationId').value;
+        
+        if (confirm('Are you sure you want to delete this reservation?')) {
+            fetch(`{% url "delete_reservation" reservation_id=0 %}`.replace('0', reservationId), {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    modal.hide();
+                    fetchReservations();  // Refresh the table
+                } else {
+                    console.error('Delete failed:', data.error);
+                    alert('Failed to delete reservation. Please try again.');
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting reservation:', error);
+                alert('An error occurred while deleting the reservation.');
+            });
+        }
+    });
+
+    // Initialize the date range and fetch reservations
+    initializeDateRange();
+});
+</script>
+{% endblock %}

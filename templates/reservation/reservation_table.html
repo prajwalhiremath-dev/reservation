@@ -1,0 +1,531 @@
+{% extends 'base/base.html' %}
+
+{% block h3 %}Testbed Reservation Table{% endblock %}
+
+
+{% block content %}
+
+
+<div class="container mb-4">
+    <div class="row align-items-end mb-2">
+        <div class="col-md-3">
+            <div class="form-group mb-0">
+                <label for="start-date">Start Date:</label>
+                <input type="date" id="start-date" class="form-control">
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="form-group mb-0">
+                <label for="start-time">Start Time:</label>
+                <input type="time" id="start-time" class="form-control">
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="form-group mb-0">
+                <label for="end-date">End Date:</label>
+                <input type="date" id="end-date" class="form-control">
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="form-group mb-0">
+                <label for="end-time">End Time:</label>
+                <input type="time" id="end-time" class="form-control">
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-12 text-center">
+            <button id="show-table" class="btn btn-primary">Show Table</button>
+        </div>
+    </div>
+    <div class="row mt-2">
+        <div class="col-12">
+            <div id="date-display" class="text-center p-2 bg-light border rounded"></div>
+        </div>
+    </div>
+</div>
+<div class="container">
+<select id="familySelect" class="form-select mt-2 mb-4"></select>
+    <option value="all" hidden>All</option>
+    <!-- Options will be populated dynamically -->
+</select>
+</div>
+<style>
+    .reservation-block {
+        border: 1px solid #ddd;
+        padding: 5px;
+        border-radius: 5px;
+        margin-bottom: 5px;
+    }
+    .devices-list {
+        color: #666;
+        font-style: italic;
+        font-size: 0.8em;
+    }
+    .table td {
+        vertical-align: top;
+    }
+</style>
+
+<div class="card">
+    <div class="card-body">
+        <h2 class="card-title">Reservation Table</h2>
+        <div class="table-responsive">
+            <table id="reservation-table" class="table table-bordered">
+                <thead>
+                    <tr id="date-header">
+                        <th>Testbed</th>
+                        <!-- Date headers will be dynamically added here -->
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Testbed rows and reservation data will be dynamically added here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap 5 Modal for editing reservation -->
+<div id="reservationModal" class="modal fade" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="edit-reservation">Edit Reservation</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="editReservationForm">
+            <input type="hidden" id="reservationId" name="reservationId">
+            <div class="mb-3">
+              <label for="editUser" class="form-label">User</label>
+              <select id="editUser" name="user" class="form-select" required></select>
+            </div>
+            <div class="mb-3">
+                <label for="editType" class="form-label">Reservation Type</label>
+                <select id="editType" name="reservation_type" class="form-select" required>
+                  <option value="Integration">Integration</option>
+                  <option value="Regression">Regression</option>
+                  <option value="Priority">Priority</option>
+                </select>
+              </div>
+            <div class="mb-3">
+              <label for="editStartTime" class="form-label">Start Time</label>
+              <input type="datetime-local" id="editStartTime" name="start_time" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label for="editEndTime" class="form-label">End Time</label>
+              <input type="datetime-local" id="editEndTime" name="end_time" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label for="editSoftwareImage" class="form-label">Software Image</label>
+                <select id="editSoftwareImage" name="software_image" class="form-select">
+                    <!-- Options will be populated dynamically -->
+                </select>
+            </div>
+            
+            <div class="mb-3">
+              <label for="editDevices" class="form-label">Devices</label>
+              <select id="editDevices" name="devices" class="form-select" multiple required></select>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-primary" id="updateReservation">Update</button>
+          <button type="button" class="btn btn-danger" id="deleteReservation">Delete</button>
+        </div>
+      </div>
+    </div>
+</div>
+
+
+
+
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const reservationTable = document.getElementById('reservation-table');
+    const dateHeader = document.getElementById('date-header');
+    const modal = new bootstrap.Modal(document.getElementById('reservationModal'));
+    const deleteButton = document.getElementById('deleteReservation');
+    const startDateInput = document.getElementById('start-date');
+    const startTimeInput = document.getElementById('start-time');
+    const endDateInput = document.getElementById('end-date');
+    const endTimeInput = document.getElementById('end-time');
+    const showTableButton = document.getElementById('show-table');
+    const dateDisplay = document.getElementById('date-display');
+
+
+    let allTestbeds = []; // Global variable to store all testbeds
+
+    function initializePage() {
+    initializeDateRange();
+    fetchFamilies();
+    fetchAllTestbeds();
+}
+
+
+function fetchFamilies() {
+    fetch('{% url "get_families" %}')
+        .then(response => response.json())
+        .then(families => {
+            const familySelect = document.getElementById('familySelect');
+            familySelect.innerHTML = '<option value="all">All</option>';
+            families.forEach(family => {
+                familySelect.innerHTML += `<option value="${family.id}">${family.name}</option>`;
+            });
+            familySelect.addEventListener('change', fetchReservations);
+        })
+        .catch(error => console.error('Error fetching families:', error));
+}
+
+
+function fetchAllTestbeds() {
+    fetch('{% url "get_all_testbeds" %}')
+        .then(response => response.json())
+        .then(testbeds => {
+            allTestbeds = testbeds;
+            fetchReservations();
+        })
+        .catch(error => console.error('Error fetching testbeds:', error));
+}
+
+
+
+    function initializeDateRange() {
+        fetch('{% url "get_allowed_period" %}')
+            .then(response => response.json())
+            .then(data => {
+                const startDateTime = moment(data.start_datetime);
+                const endDateTime = moment(data.end_datetime);
+                
+                startDateInput.value = startDateTime.format('YYYY-MM-DD');
+                startTimeInput.value = startDateTime.format('HH:mm');
+                endDateInput.value = endDateTime.format('YYYY-MM-DD');
+                endTimeInput.value = endDateTime.format('HH:mm');
+                
+                updateDateDisplay();
+                fetchReservations();
+            })
+            .catch(error => {
+                console.error("Error fetching allowed period:", error);
+            });
+    }
+
+    function updateDateDisplay() {
+        const startDateTime = moment(`${startDateInput.value} ${startTimeInput.value}`);
+        const endDateTime = moment(`${endDateInput.value} ${endTimeInput.value}`);
+        dateDisplay.textContent = `Selected range: ${startDateTime.format('YYYY-MM-DD HH:mm')} to ${endDateTime.format('YYYY-MM-DD HH:mm')}`;
+    }
+
+    startDateInput.addEventListener('change', updateDateDisplay);
+    startTimeInput.addEventListener('change', updateDateDisplay);
+    endDateInput.addEventListener('change', updateDateDisplay);
+    endTimeInput.addEventListener('change', updateDateDisplay);
+
+    showTableButton.addEventListener('click', fetchReservations);
+
+    function fetchReservations() {
+    const startDateTime = moment(`${startDateInput.value} ${startTimeInput.value}`);
+    const endDateTime = moment(`${endDateInput.value} ${endTimeInput.value}`);
+    const familyId = document.getElementById('familySelect').value;
+
+    if (!startDateTime.isValid() || !endDateTime.isValid()) {
+        console.error("Invalid date/time");
+        return;
+    }
+
+    const url = `{% url "get_reservations" %}?start_datetime=${startDateTime.toISOString()}&end_datetime=${endDateTime.toISOString()}&family_id=${familyId}`;
+    console.log("Fetching reservations from:", url);
+
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            renderReservationTable(data, startDateTime, endDateTime);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while fetching reservations. Please check the console for details.');
+        });
+}
+
+    function generateDateRange(start, end) {
+        let dates = [];
+        let currentDate = moment(start);
+        const endDate = moment(end);
+
+        while (currentDate <= endDate) {
+            dates.push(currentDate.format('YYYY-MM-DD'));
+            currentDate.add(1, 'days');
+        }
+
+        return dates;
+    }
+
+    function renderReservationTable(data, startDate, endDate) {
+    const dates = generateDateRange(startDate, endDate);
+    const familyId = document.getElementById('familySelect').value;
+
+    dateHeader.innerHTML = '<th>Testbed</th>';
+    dates.forEach(date => {
+        dateHeader.innerHTML += `<th>${date}</th>`;
+    });
+
+    const tableBody = reservationTable.querySelector('tbody');
+    tableBody.innerHTML = '';
+
+    const filteredTestbeds = familyId === 'all' 
+        ? allTestbeds 
+        : allTestbeds.filter(testbed => testbed.family_id === parseInt(familyId));
+
+    filteredTestbeds.forEach(testbed => {
+        let row = `<tr><td>${testbed.name}</td>`;
+        dates.forEach(date => {
+            const reservations = data.filter(r => r.testbed === testbed.name && r.date === date);
+            row += '<td>';
+            if (reservations.length > 0) {
+                reservations.forEach(r => {
+                    let buttonClass;
+                    switch (r.type) {
+                        case 'Integration':
+                            buttonClass = 'btn-success';
+                            break;
+                        case 'Regression':
+                            buttonClass = 'btn-primary';
+                            break;
+                        case 'Priority':
+                            buttonClass = 'btn-danger';
+                            break;
+                        default:
+                            buttonClass = 'btn-secondary';
+                    }
+                    row += `
+                        <div class="reservation-block">
+                            <button class="btn ${buttonClass} btn-sm" 
+                                    onclick="openReservationModal(${r.id})">
+                                ${r.user} - ${r.startTime}-${r.endTime}
+                            </button>
+                            <div class="devices-list">
+                                ${r.devices ? r.devices.map(d => d.name).join(', ') : 'No devices'}
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                row += '<span class="text-muted">No reservations</span>';
+            }
+            row += '</td>';
+        });
+        row += '</tr>';
+        tableBody.innerHTML += row;
+    });
+}
+
+
+
+    window.openReservationModal = function(reservationId) {
+        console.log('Opening modal for reservation:', reservationId);
+        fetch(`{% url "get_reservation" reservation_id=0 %}`.replace('0', reservationId))
+            .then(response => response.json())
+            .then(reservation => {
+                console.log('Received reservation data:', reservation);
+                document.getElementById('reservationId').value = reservation.id;
+                
+                const userSelect = document.getElementById('editUser');
+                userSelect.innerHTML = '';
+                fetch('{% url "get_users" %}')
+                    .then(response => response.json())
+                    .then(users => {
+                        users.forEach(user => {
+                            const option = new Option(user.username, user.id);
+                            option.selected = user.username === reservation.user;
+                            userSelect.add(option);
+                        });
+                    });
+
+                document.getElementById('editStartTime').value = reservation.startTime.slice(0, 16);
+                document.getElementById('editEndTime').value = reservation.endTime.slice(0, 16);
+                document.getElementById('editType').value = reservation.type;
+                
+                fetch(`{% url "get_devices_update" %}?testbed_id=${encodeURIComponent(reservation.testbed)}`)
+                    .then(response => response.json())
+                    .then(devices => {
+                        const devicesSelect = document.getElementById('editDevices');
+                        devicesSelect.innerHTML = '';
+                        devices.forEach(device => {
+                            const option = new Option(device.name, device.id);
+                            option.selected = reservation.devices.some(d => d.id === device.id);
+                            devicesSelect.add(option);
+                        });
+                    });
+                
+                const softwareImageSelect = document.getElementById('editSoftwareImage');
+                if (softwareImageSelect) {
+                    fetch('{% url "get_software_images" %}')
+                        .then(response => response.json())
+                        .then(images => {
+                            softwareImageSelect.innerHTML = '';
+                            images.forEach(image => {
+                                const option = new Option(image.image, image.id);
+                                option.selected = reservation.software_image && image.id === reservation.software_image.id;
+                                softwareImageSelect.add(option);
+                            });
+                        });
+                }
+                
+                modal.show();
+            })
+            .catch(error => {
+                console.error('Error fetching reservation details:', error);
+                alert('Failed to fetch reservation details. Please try again.');
+            });
+    }
+
+    function updateReservation(reservationId, formData) {
+        const plainFormData = Object.fromEntries(formData.entries());
+        plainFormData.devices = formData.getAll('devices');
+
+        fetch(`{% url "update_reservation" reservation_id=0 %}`.replace('0', reservationId), {
+            method: 'POST',
+            body: JSON.stringify(plainFormData),
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                let changesHtml = '';
+                if (data.changes && data.changes.length > 0) {
+                    changesHtml = '<ul>' + data.changes.map(change => `<li>${change}</li>`).join('') + '</ul>';
+                } else {
+                    changesHtml = '<p>No changes were made.</p>';
+                }
+                
+                if (data.updated_data) {
+                    if (data.updated_data.software_image) {
+                        const softwareImageSelect = document.getElementById('editSoftwareImage');
+                        Array.from(softwareImageSelect.options).forEach(option => {
+                            option.selected = option.value == data.updated_data.software_image.id;
+                        });
+                    }
+                    if (data.updated_data.devices) {
+                        const devicesSelect = document.getElementById('editDevices');
+                        Array.from(devicesSelect.options).forEach(option => {
+                            option.selected = data.updated_data.devices.some(d => d.id == option.value);
+                        });
+                    }
+                }
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Update Successful',
+                    html: `${data.message}<br>${changesHtml}`,
+                    confirmButtonText: 'OK'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        modal.hide();
+                        fetchReservations();
+                    }
+                });
+            } else {
+                let errorMessage = data.message || 'An error occurred during the update.';
+                if (data.errors) {
+                    errorMessage += '<br><ul>';
+                    for (const [field, error] of Object.entries(data.errors)) {
+                        errorMessage += `<li>${field}: ${error}</li>`;
+                    }
+                    errorMessage += '</ul>';
+                }
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Update Failed',
+                    html: errorMessage,
+                    confirmButtonText: 'OK'
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                text: 'Something went wrong! Please try again.',
+                confirmButtonText: 'OK'
+            });
+        });
+    }
+
+    const updateButton = document.getElementById('updateReservation');
+    if (updateButton) {
+        updateButton.addEventListener('click', function() {
+            const form = document.getElementById('editReservationForm');
+            const reservationId = document.getElementById('reservationId').value;
+            const formData = new FormData(form);
+            updateReservation(reservationId, formData);
+        });
+    } else {
+        console.error('Update button not found in the DOM');
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    if (deleteButton) {
+        deleteButton.addEventListener('click', function() {
+            const reservationId = document.getElementById('reservationId').value;
+            
+            if (confirm('Are you sure you want to delete this reservation?')) {
+                const csrftoken = getCookie('csrftoken');
+
+                fetch(`{% url "delete_reservation" reservation_id=0 %}`.replace('0', reservationId), {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrftoken
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        modal.hide();
+                        fetchReservations();
+                    } else {
+                        console.error('Delete failed:', data.error);
+                        alert('Failed to delete reservation. Please try again.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error deleting reservation:', error);
+                    alert('An error occurred while deleting the reservation.');
+                });
+            }
+        });
+    } else {
+        console.error('Delete button not found in the DOM');
+    }
+
+    initializeDateRange();
+    // Initialize the page
+    initializePage();
+});
+</script>
+{% endblock %}
