@@ -1,7 +1,50 @@
 {% extends "base/base.html" %}
 
-
+{% block h3 %} {% endblock %}
+{% block caption %}{% endblock  %}
 
 {% block content %}
+<div class="container-fluid d-flex flex-column justify-content-center align-items-center text-center">
+    
+    <!-- Lottie animation -->
+    <script src="https://unpkg.com/@dotlottie/player-component@latest/dist/dotlottie-player.mjs" type="module"></script> 
+    <dotlottie-player 
+        src="https://lottie.host/18556d5a-0ad9-4a07-9ec6-a4877b02337c/8JZaX7aSGu.json" 
+        background="transparent" 
+        speed="1" 
+        style="width: 600px; height: 600px;" 
+        loop 
+        autoplay>
+    </dotlottie-player>
+    
+    <!-- Headline -->
+    <h1 class="mt-4" style="font-size: 2.5rem; font-weight: 700; color: #333;">The Quick Insight is Under Development</h1>
+    
+    <!-- Caption -->
+    <p class="mt-3 mb-5" style="font-size: 1.25rem; color: #666;">
+        We're crafting an intuitive and powerful testbed reservation system with analytical widgets to deliver quick insights and interactive graphical analysis. Stay tuned for exciting updates!
+    </p>
+
+    <!-- Stylish Button (Optional) -->
+    <a href="#" class="btn btn-primary btn-lg mb-3 pb-2" style="animation: pulse 1.5s infinite;">Notify Me When Ready</a>
+</div>
+
+<!-- Animation for Button -->
+<style>
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7);
+    }
+    70% {
+        transform: scale(1.05);
+        box-shadow: 0 0 30px 20px rgba(0, 123, 255, 0);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(0, 123, 255, 0);
+    }
+}
+</style>
 
 {% endblock %}

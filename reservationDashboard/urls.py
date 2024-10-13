@@ -21,6 +21,9 @@ urlpatterns = [
     path('get-devices-update/', views.get_devices_update, name='get_devices_update'),
     path('get-families/', views.get_families, name='get_families'),
     path('get-all-testbeds/', views.get_all_testbeds, name='get_all_testbeds'),
+    path('maintenance/', views.maintenance, name='maintenance'),
+    path('about/', views.about, name='about'),
+
 
 
 ]

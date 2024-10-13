@@ -1,0 +1,69 @@
+
+{% extends 'base/base.html' %}
+
+{% load static %}
+
+{% block h3 %} {% endblock %}
+{% block caption %}{% endblock  %}
+             
+{% block navbar %}{% endblock navbar %}
+
+{% block content %}
+
+<div class="container-fluid d-flex flex-column justify-content-center align-items-center text-center" style="height: 100vh;">
+
+    <!-- Lottie animation -->
+    <script src="https://unpkg.com/@dotlottie/player-component@latest/dist/dotlottie-player.mjs" type="module"></script>
+    <dotlottie-player 
+        src="https://lottie.host/687e6d03-1d50-4246-9f14-9df343af962b/gW6z6cOmCq.json" 
+        background="transparent" 
+        speed="1" 
+        style="width: 600px; height: 600px;" 
+        loop 
+        autoplay>
+    </dotlottie-player>
+
+    <!-- Headline -->
+    <h1 class="mt-4" style="font-size: 2.5rem; font-weight: 700; color: #333; animation: fadeIn 1.5s ease-in-out;">This Page is Under Maintenance</h1>
+
+    <!-- Caption -->
+    <p class="mt-3 mb-5" style="font-size: 1.25rem; color: #666; animation: fadeIn 2s ease-in-out;">
+        It won’t take long! We will be back live soon.
+    </p>
+
+    <!-- Stylish Button (Optional) -->
+    <a href="#" class="btn btn-primary btn-lg" style="animation: bounce 2s infinite;">Notify Me When Ready</a>
+</div>
+
+<!-- Animation for Headline and Button -->
+<style>
+@keyframes fadeIn {
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-15px);
+    }
+    60% {
+        transform: translateY(-10px);
+    }
+}
+</style>
+
+{% endblock %}
+
+
+
+{% block footer%}
+      {% endblock footer %}

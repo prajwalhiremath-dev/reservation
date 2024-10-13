@@ -385,3 +385,11 @@ def get_families(request):
 def get_all_testbeds(request):
     testbeds = Testbed.objects.all().values('id', 'name', 'family_id')
     return JsonResponse(list(testbeds), safe=False)
+
+
+def maintenance(request):
+    return render(request, 'reservation/maintenance.html')
+
+def about(request):
+
+    return render(request, 'base/about.html')
