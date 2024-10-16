@@ -23,6 +23,7 @@ class ReservationForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if self.is_update:
             del self.fields['testbed']
+        self.fields['devices'].required = True  # Make devices selection required
 
     def clean(self):
         cleaned_data = super().clean()
@@ -46,6 +47,8 @@ class ReservationForm(forms.ModelForm):
             # For example, check if the duration is within a certain limit
             # if (end_time - start_time) > timedelta(hours=24):
             #     raise forms.ValidationError("Reservation cannot exceed 24 hours.")
+        if not cleaned_data.get('devices'):
+            raise forms.ValidationError("At least one device must be selected.")
 
         return cleaned_data
 

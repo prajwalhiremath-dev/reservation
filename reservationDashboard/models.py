@@ -74,12 +74,17 @@ class Reservation(models.Model):
 
     class Meta:
         ordering = ['-created_at']
-        constraints = [
-            models.UniqueConstraint(
-                fields=['testbed', 'start_time', 'end_time'],
-                name='unique_testbed_reservation'
-            )
-        ]
+        '''
+        Removed the UniqueConstraint: This constraint was preventing overlapping reservations on the same testbed, 
+        even when different devices were being reserved. By removing it, we allow multiple reservations on the same 
+        testbed as long as the devices don't conflict.
+        '''
+        # constraints = [
+        #     models.UniqueConstraint(
+        #         fields=['testbed', 'start_time', 'end_time'],
+        #         name='unique_testbed_reservation'
+        #     )
+        # ]
 
     def __str__(self):
         return f"{self.user.username} - {self.testbed.name} ({self.start_time} to {self.end_time})"
@@ -88,12 +93,16 @@ class Reservation(models.Model):
         super().clean()
         if not hasattr(self, '_devices_to_check'):
             self._devices_to_check = []
+
+        '''
+        Removed the validate_unique check in the clean method: This check was related to the removed constraint and is no longer necessary.
+        '''
         
-        try:
-            self.validate_unique()
-        except ValidationError as e:
-            if 'unique_together' in str(e):
-                raise ValidationError("A reservation for this testbed already exists during the selected time period.")
+        # try:
+        #     self.validate_unique()
+        # except ValidationError as e:
+        #     if 'unique_together' in str(e):
+        #         raise ValidationError("A reservation for this testbed already exists during the selected time period.")
         
         self._check_availability(self._devices_to_check)
 
