@@ -41,9 +41,6 @@ def make_reservation(request):
                         if not AllowedReservationPeriod.is_period_allowed(reservation.start_time, reservation.end_time):
                             return JsonResponse({'success': False, 'error': "Reservation is not within allowed period."})
                         
-                        # devices_to_lock = Device.objects.filter(id__in=form.cleaned_data['devices'])
-                        # devices_to_lock.select_for_update()
-                        
                         # Set _devices_to_check before saving
                         reservation._devices_to_check = form.cleaned_data['devices']
 
@@ -51,6 +48,7 @@ def make_reservation(request):
                         reservation.save()  # This will now handle setting the devices
                     return JsonResponse({'success': True, 'message': 'Reservation created successfully.'})
                 except ValidationError as e:
+                    #error_message = e.messages[0] if isinstance(e.messages, list) else str(e)
                     error_message = '; '.join(e.messages) if isinstance(e.messages, list) else str(e)
                     return JsonResponse({'success': False, 'error': error_message})
             else:

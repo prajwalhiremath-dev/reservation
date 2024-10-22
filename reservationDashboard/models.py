@@ -126,19 +126,26 @@ class Reservation(models.Model):
             if exclude_reservation_id:
                 overlapping_reservations = overlapping_reservations.exclude(pk=exclude_reservation_id)
             
-            overlapping_reservations = overlapping_reservations.select_for_update().prefetch_related('devices')
+            #overlapping_reservations = overlapping_reservations.select_for_update().prefetch_related('devices') #checking with bug case_1_and_case_2
+            #from here the code is changed
+            overlapping_reservations = overlapping_reservations.select_for_update()
 
-            unavailable_devices = set()
-            for reservation in overlapping_reservations:
-                unavailable_devices.update(reservation.devices.all())
-            
-            # Check if any of the requested devices are unavailable
-            requested_devices = set(devices)
-            conflicting_devices = requested_devices.intersection(unavailable_devices)
-            
-            if conflicting_devices:
-                return False, conflicting_devices
-        return True, set()
+            # Quick check for any overlapping reservations
+            if overlapping_reservations.exists():
+                 # Proceed with detailed device availability check
+                overlapping_reservations = overlapping_reservations.prefetch_related('devices')
+
+                unavailable_devices = set()
+                for reservation in overlapping_reservations:
+                    unavailable_devices.update(reservation.devices.all())
+                
+                # Check if any of the requested devices are unavailable
+                requested_devices = set(devices)
+                conflicting_devices = requested_devices.intersection(unavailable_devices)
+                
+                if conflicting_devices:
+                    return False, conflicting_devices
+            return True, set()
 
     def save(self, *args, **kwargs):
         self.full_clean()

@@ -1,0 +1,10 @@
+case_1_and_case_2 : 
+Case 1 : In below reservation, one reservation should happen  Concurrency (as this project will be moved to production, where the below scenario may happen )
+aprajwal (user) did a reservation for FX3-REG-TB1 and reserved 3 devices (FX-REG-TB1-TOR1, FX-REG-TB1-TOR2, FX-REG-TB1-TOR3) from 16-10-2024 10:00 to 16-10-2024 14:00 for integration and for image OR4M.
+syn (user) did a reservation for FX3-REG-TB1 and reserved 3 devices (FX-REG-TB1-TOR1, FX-REG-TB1-TOR2, FX-REG-TB1-TOR3) from 16-10-2024 10:00 to 16-10-2024 14:00 for integration and for image OR4M.
+vvg (user) did a reservation for FX3-REG-TB1 and reserved 3 devices (FX-REG-TB1-TOR1, FX-REG-TB1-TOR2, FX-REG-TB1-TOR3, FX-REG-TB1-TOR4) from 16-10-2024 10:00 to 16-10-2024 14:00 for integration and for image PR2F.
+
+Case 2 : Which is resolved by present code, but i am asking again.
+
+aprajwal (user) did a reservation for FX3-REG-TB1 and reserved 3 devices (FX-REG-TB1-TOR1, FX-REG-TB1-TOR2, FX-REG-TB1-TOR3) from 16-10-2024 10:00 to 16-10-2024 14:00 for integration and for image OR4M. This reservation will be success ######################################### syn (user) did a reservation for FX3-REG-TB1 and reserved 3 devices (FX-REG-TB1-TOR4) from 16-10-2024 10:00 to 16-10-2024 14:00 for integration and for image OR4M. This reservation will be failed -> saying the testbed is already reserved with same start time and end time. ################################## But if change little bit start time then the reservation will be successful. like below: (just added 1 min for start time) syn (user) did a reservation for FX3-REG-TB1 and reserved 3 devices (FX-REG-TB1-TOR4) from 16-10-2024 10:01 to 16-10-2024 14:00 for integration and for image OR4M. This reservation will be success
+So, our desired behavior is the reservation should be success full when syn (user) did a reservation for FX3-REG-TB1 and reserved 3 devices (FX-REG-TB1-TOR4) from 16-10-2024 10:00 to 16-10-2024 14:00 for integration and for image OR4M.

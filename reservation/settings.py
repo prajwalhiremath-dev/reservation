@@ -127,7 +127,7 @@ LANGUAGE_CODE = 'en-us'
 
 USE_I18N = True
 
-USE_TZ = False #initally we used True
+USE_TZ = False 
 TIME_ZONE = 'Asia/Kolkata'  # Your local timezone
 
 
