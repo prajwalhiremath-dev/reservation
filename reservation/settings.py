@@ -146,7 +146,54 @@ STATICFILES_DIRS = [
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
+# Celery Configuration
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Asia/Kolkata'  # Set to your timezone
+
+
+# Celery Settings
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+CELERY_TASK_TRACK_STARTED = True
+
+# Webex API timeout settings
+WEBEX_API_TIMEOUT = 30  # seconds
 #webex token and room id:
+
+# Logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'reservationDashboard': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+}
+
+# Celery beat schedule
+CELERY_BEAT_SCHEDULE = {
+    'check-reservations': {
+        'task': 'reservationDashboard.tasks.send_reservation_notifications',
+        'schedule': 60.0,  # Run every minute
+    },
+}
+
 
 WEBEX_BOT_TOKEN = os.getenv('WEBEX_BOT_TOKEN')
 WEBEX_ROOM_ID = os.getenv('WEBEX_ROOM_ID')
