@@ -89,6 +89,11 @@ class Reservation(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.testbed.name} ({self.start_time} to {self.end_time})"
     
+    #Added to restrict the update 
+    def is_completed(self):
+        """Check if the reservation period has passed"""
+        return self.end_time < timezone.now()
+    
     def clean(self):
         super().clean()
         if not hasattr(self, '_devices_to_check'):

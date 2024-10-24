@@ -199,6 +199,13 @@ def update_reservation(request, reservation_id):
     try:
         with transaction.atomic():
             reservation = Reservation.objects.select_for_update().get(id=reservation_id)
+
+            # Check if reservation is completed
+            if reservation.is_completed():
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Cannot update a completed reservation. The reservation period has already passed.',
+                }, status=403)
             
             original_data = {
                 'user': reservation.user.username,
