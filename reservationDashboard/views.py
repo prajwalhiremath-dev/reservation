@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponseBadRequest
 from .models import User, Family, Testbed, Device, Software, Reservation, AllowedReservationPeriod
-from .forms import ReservationForm
+from .forms import ReservationForm, CustomAuthenticationForm, CustomUserCreationForm, PasswordChangeForm
 from django.core.exceptions import ValidationError
 from django.utils.dateparse import parse_datetime
 from datetime import datetime, timedelta
@@ -17,22 +17,166 @@ import traceback
 from django.http import HttpResponseServerError
 from webexteamssdk import WebexTeamsAPI
 from django.conf import settings
+from django.contrib.auth import login, authenticate, logout, update_session_auth_hash
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.contrib.auth.hashers import check_password
 import logging
 logger = logging.getLogger(__name__)
 
-def test(request):
+def login_view(request):
+    if request.user.is_authenticated:
+        return redirect('index')
+        
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        
+        user = authenticate(username=username, password=password)
+        if user is not None:
+            login(request, user)
+            
+            # Check if user needs to change password
+            if user.force_password_change:
+                messages.warning(request, 'Please change your temporary password.')
+                return redirect('change_password')
+            
+            return redirect('index')
+        else:
+            messages.error(request, 'Invalid username or password.')
+    
+    return render(request, 'auth/login.html')
+
+@login_required
+def logout_view(request):
+    logout(request)
+    messages.info(request, 'You have been logged out successfully.')
+    return redirect('login')
+
+def guest_login(request):
+    """Handle guest user login"""
+    try:
+        guest_user = User.objects.get(username='guest')
+        login(request, guest_user)
+        return JsonResponse({'success': True, 'redirect_url': '/'})
+    except User.DoesNotExist:
+        return JsonResponse({
+            'success': False, 
+            'error': 'Guest account not available'
+        }, status=400)
+
+def register_view(request):
+    if request.method == 'POST':
+        form = CustomUserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.force_password_change = False  # New users don't need to change password
+            user.save()
+            login(request, user)
+            messages.success(request, 'Registration successful!')
+            return redirect('index')
+    else:
+        form = CustomUserCreationForm()
+    return render(request, 'auth/register.html', {'form': form})
+
+@login_required
+def profile_view(request):
+    """Display user profile and reservation history"""
+    context = {
+        'user': request.user,
+        'page_title': 'Profile',
+        'page_subtitle': 'User Profile'
+    }
+    return render(request, 'auth/profile.html', context)
+
+@login_required
+def update_profile(request):
+    """Handle profile updates including password changes"""
+    if request.method == 'POST':
+        user = request.user
+        username = request.POST.get('username')
+        email = request.POST.get('email')
+        current_password = request.POST.get('current_password')
+        new_password = request.POST.get('new_password')
+
+        # Check if username is already taken
+        if username != user.username and User.objects.filter(username=username).exists():
+            messages.error(request, 'Username is already taken.')
+            return redirect('profile')
+
+        # Check if email is already taken
+        if email != user.email and User.objects.filter(email=email).exists():
+            messages.error(request, 'Email is already registered.')
+            return redirect('profile')
+
+        # Update basic info
+        user.username = username
+        user.email = email
+
+        # Handle password change if requested
+        if current_password and new_password:
+            if not check_password(current_password, user.password):
+                messages.error(request, 'Current password is incorrect.')
+                return redirect('profile')
+            
+            # Validate new password
+            if len(new_password) < 8:
+                messages.error(request, 'Password must be at least 8 characters long.')
+                return redirect('profile')
+            
+            user.set_password(new_password)
+            messages.success(request, 'Password updated successfully. Please login again.')
+        else:
+            messages.success(request, 'Profile updated successfully.')
+
+        user.save()
+        
+        # If password was changed, redirect to login
+        if new_password:
+            return redirect('login')
+        
+        return redirect('profile')
+
+    return redirect('profile')
+
+
+@login_required
+def change_password(request):
+    if request.method == 'POST':
+        form = PasswordChangeForm(request.user, request.POST)
+        if form.is_valid():
+            user = request.user
+            user.set_password(form.cleaned_data['new_password'])
+            user.force_password_change = False  # Remove the force password change flag
+            user.save()
+            update_session_auth_hash(request, user)
+            messages.success(request, 'Your password was successfully updated!')
+            return redirect('profile')
+    else:
+        form = PasswordChangeForm(request.user)
+    
+    context = {
+        'form': form,
+        'force_change': request.user.force_password_change
+    }
+    return render(request, 'auth/change_password.html', context)
+
+
+
+@login_required
+def index(request):
     context = {
         'page_title': 'Cisco Dashboard',
         'page_subtitle': 'Testbed Reservation'
     }
     return render(request, 'base/index.html', context=context)
 
-
+@login_required
 @transaction.atomic
 def make_reservation(request):
     if request.method == 'POST':
         try:
-            form = ReservationForm(request.POST)
+            form = ReservationForm(request.POST, user=request.user)
             if form.is_valid():
                 try:
                     with transaction.atomic():
@@ -58,7 +202,7 @@ def make_reservation(request):
             logger.error(f"Unexpected error in make_reservation: {str(e)}\n{traceback.format_exc()}")
             return JsonResponse({'success': False, 'error': 'An unexpected error occurred. Please try again.'}, status=500)
     else:
-        form = ReservationForm()
+        form = ReservationForm(user=request.user)
  
     context = {
         'form': form,
@@ -108,7 +252,7 @@ def get_available_devices(request):
 # def reservation_table(request):
 #     """Render the reservation table page"""
 #     return render(request, 'reservation/reservation_table.html')
-
+@login_required
 def reservation_table(request):
     return render(request, 'reservation/reservation_table.html')
 
@@ -391,10 +535,11 @@ def get_all_testbeds(request):
     testbeds = Testbed.objects.all().values('id', 'name', 'family_id')
     return JsonResponse(list(testbeds), safe=False)
 
-
+@login_required
 def maintenance(request):
     return render(request, 'reservation/maintenance.html')
 
+@login_required
 def about(request):
 
     return render(request, 'base/about.html')

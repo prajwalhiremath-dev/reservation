@@ -2,7 +2,8 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.db import transaction
-
+from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.hashers import make_password
 
 class Family(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -13,11 +14,23 @@ class Family(models.Model):
     class Meta:
         verbose_name_plural = "Families"
 
-class User(models.Model):
-    username = models.CharField(max_length=100, unique=True)
+class User(AbstractUser):
+    is_guest = models.BooleanField(default=False)
+    force_password_change = models.BooleanField(default=False)  # Default is False for new registrations
+    
+    class Meta:
+        db_table = 'reservationDashboard_user'
+        verbose_name = 'User'
+        verbose_name_plural = 'Users'
 
     def __str__(self):
         return self.username
+
+    def save(self, *args, **kwargs):
+        # Ensure password is hashed before saving
+        if self.password and not self.password.startswith(('pbkdf2_sha256$', 'bcrypt$', 'argon2')):
+            self.password = make_password(self.password)
+        super().save(*args, **kwargs)
 
 class Testbed(models.Model):
     family = models.ForeignKey(Family, related_name='testbeds', on_delete=models.CASCADE)

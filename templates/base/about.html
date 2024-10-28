@@ -1,70 +1,286 @@
-
-{% extends "base/base.html" %}
-
-{% block h3 %} Testbed Reservation Dashboard {% endblock %}
-{% block caption %}{% endblock  %}
+{% extends 'base/base.html' %}
+{% load static %}
 
 {% block content %}
-<div class="container-fluid d-flex flex-column justify-content-center align-items-center text-center" style="padding: 0rem 2rem 2rem 2rem;">
+<div class="container-fluid py-4">
+    <!-- Hero Section -->
+    <div class="row mb-5 align-items-center">
+        <div class="col-lg-6">
+            <h1 class="display-4 mb-4 animate__animated animate__fadeInLeft">N39K Testbed Reservation Dashboard</h1>
+            <p class="lead text-muted animate__animated animate__fadeInLeft animate__delay-1s">
+                A comprehensive system for managing Cisco Nexus testbed reservations with real-time notifications and smart analytics.
+            </p>
+        </div>
+        <div class="col-lg-6 text-center animate__animated animate__fadeInRight">
+            <!-- <img src="{% static 'assets/images/dashboard-preview.png' %}" alt="Dashboard Preview" class="img-fluid rounded shadow"> -->
+            <script src="https://unpkg.com/@dotlottie/player-component@latest/dist/dotlottie-player.mjs" type="module"></script> 
+            <dotlottie-player 
+                src="https://lottie.host/18556d5a-0ad9-4a07-9ec6-a4877b02337c/8JZaX7aSGu.json" 
+                background="transparent" 
+                speed="1" 
+                style="width: 400px; height: 400px;" 
+                loop 
+                autoplay>
+            </dotlottie-player>
+        </div>
+    </div>
 
-    <!-- Lottie animation -->
-    <script src="https://unpkg.com/@dotlottie/player-component@latest/dist/dotlottie-player.mjs" type="module"></script> 
-    <dotlottie-player 
-        src="https://lottie.host/97668869-f7e4-462e-940a-f29ee5bc42e3/RqeXMF1Eer.json" 
-        background="transparent" 
-        speed="1" 
-        style="width: 600px; height: 600px;" 
-        loop 
-        autoplay>
-    </dotlottie-player>
+    <!-- Key Features Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="text-center mb-5">Key Features</h2>
+        </div>
+        
+        <!-- Authentication -->
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100 border-0 shadow-sm hover-lift">
+                <div class="card-body">
+                    <div class="feature-icon mb-3">
+                        <i class="fas fa-lock text-primary fa-2x"></i>
+                    </div>
+                    <h4>Secure Authentication</h4>
+                    <p>Custom authentication system independent of CEC credentials. Users can manage their own passcodes securely.</p>
+                </div>
+            </div>
+        </div>
 
-    <!-- Project Introduction -->
-    <h1 class="mt-4" style="font-size: 2.5rem; font-weight: 700; color: #333; animation: fadeIn 1.5s ease-in-out;">About Our Cisco Reservation Dashboard</h1>
+        <!-- Reservation Management -->
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100 border-0 shadow-sm hover-lift">
+                <div class="card-body">
+                    <div class="feature-icon mb-3">
+                        <i class="fas fa-calendar-check text-primary fa-2x"></i>
+                    </div>
+                    <h4>Smart Reservations</h4>
+                    <p>Book testbeds with flexible time slots. Update reservations before end time with automated validations.</p>
+                </div>
+            </div>
+        </div>
 
-    <!-- Project Description -->
-    <p class="mt-3" style="font-size: 1.2rem; color: #666; max-width: 800px; animation: fadeIn 2s ease-in-out;">
-        Welcome to our <strong>Testbed Reservation Dashboard</strong>, a platform where engineers can reserve Nexus L3 switches for testing and automation purposes. This system ensures smooth and robust reservations with no overlap, even handling concurrent requests.
-    </p>
-    
-    <p class="mt-2" style="font-size: 1.2rem; color: #666; max-width: 800px; animation: fadeIn 2.5s ease-in-out;">
-        Users receive Webex notifications for updates, including reminders 5 minutes before their reservation ends. Our platform also offers analytical and graphical insights, helping users and testbed managers track usage and performance effectively.
-    </p>
-    
-    <p class="mt-2 mb-5" style="font-size: 1.2rem; color: #666; max-width: 800px; animation: fadeIn 3s ease-in-out;">
-        This project is developed by <strong>aprajwal</strong> as part of the N39K team.
-    </p>
+        <!-- Webex Integration -->
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100 border-0 shadow-sm hover-lift">
+                <div class="card-body">
+                    <div class="feature-icon mb-3">
+                        <i class="fas fa-comments text-primary fa-2x"></i>
+                    </div>
+                    <h4>Webex Integration</h4>
+                    <p>Real-time notifications via "N39K Testbed Reservation" bot for updates and changes.</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    <!-- Stylish Button (Optional) -->
-    <a href="#" class="btn btn-primary btn-lg" style="animation: pulse 1.5s infinite;">Learn More</a>
+    <!-- Timeline Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="text-center mb-5">Software Release Timeline</h2>
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-badge bg-primary">1</div>
+                    <div class="timeline-content">
+                        <h6>First Pass</h6>
+                        <p>Start and end dates for initial testing phase</p>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-badge bg-info">2</div>
+                    <div class="timeline-content">
+                        <h6>Second Pass</h6>
+                        <p>Verification and validation period</p>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-badge bg-warning">3</div>
+                    <div class="timeline-content">
+                        <h6>Quiet Period</h6>
+                        <p>Quiet analysis and assessment</p>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-badge bg-success">4</div>
+                    <div class="timeline-content">
+                        <h6>CCO Dates</h6>
+                        <p>Target and commitment milestones</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analytics Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="text-center mb-5">Smart Analytics</h2>
+        </div>
+        <div class="col-lg-6 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h5>User Dashboard</h5>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success me-2"></i>View today's reservations</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Track reservation history</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Monitor reservation status</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h5>Admin Analytics</h5>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success me-2"></i>Comprehensive reservation overview</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Usage analytics and trends</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Manage deletion requests</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Coming Soon Section -->
+    <div class="row">
+        <div class="col-12 text-center">
+            <h2 class="mb-4">Coming Soon</h2>
+            <p class="lead text-muted">Stay tuned for more exciting features and improvements!</p>
+        </div>
+    </div>
+        <!-- Credits Section -->
+        <div class="row mt-5">
+            <div class="col-12">
+                <div class="card border-0 bg-light">
+                    <div class="card-body text-center">
+                        <div class="credits-section animate__animated animate__fadeIn">
+                            <p class="mb-0">
+                                This project is developed by 
+                                <span class="fw-bold text-primary">aprajwal</span> 
+                                as part of the 
+                                <span class="fw-bold">N39K team</span>
+                                <i class="fas fa-code ms-2 text-primary"></i>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 </div>
 
-<!-- Animation Styles -->
+<!-- Add required CSS -->
+
 <style>
-@keyframes fadeIn {
-    0% {
-        opacity: 0;
-        transform: translateY(20px);
+    .hover-lift {
+        transition: transform 0.2s ease;
     }
-    100% {
-        opacity: 1;
-        transform: translateY(0);
+    
+    .hover-lift:hover {
+        transform: translateY(-5px);
     }
-}
 
-@keyframes pulse {
-    0% {
-        transform: scale(1);
-        box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7);
+    .timeline {
+        position: relative;
+        padding: 20px 0;
     }
-    70% {
-        transform: scale(1.05);
-        box-shadow: 0 0 30px 20px rgba(0, 123, 255, 0);
+
+    .timeline::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 50%;
+        height: 100%;
+        width: 2px;
+        background: #e9ecef;
     }
-    100% {
-        transform: scale(1);
-        box-shadow: 0 0 0 0 rgba(0, 123, 255, 0);
+
+    .timeline-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 30px;
     }
-}
+
+    .timeline-badge {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        z-index: 1;
+    }
+
+    .timeline-content {
+        margin-left: 20px;
+        background: white;
+        padding: 15px;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        flex: 1;
+    }
+
+    .feature-icon {
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: rgba(var(--bs-primary-rgb), 0.1);
+    }
+
+    .credits-section {
+        padding: 1rem;
+        border-radius: 8px;
+        font-size: 1.1rem;
+    }
+
+    .credits-section .fw-bold {
+        letter-spacing: 0.5px;
+    }
+
+    .credits-section i {
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.2);
+        }
+        100% {
+            transform: scale(1);
+        }
+    }
 </style>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
 
+
+<!-- Add required JavaScript -->
+{% block extra_js %}
+<script>
+    // Add scroll animations
+    document.addEventListener('DOMContentLoaded', function() {
+        const animateOnScroll = (entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('animate__animated', 'animate__fadeInUp');
+                    observer.unobserve(entry.target);
+                }
+            });
+        };
+
+        const observer = new IntersectionObserver(animateOnScroll, {
+            threshold: 0.1
+        });
+
+        document.querySelectorAll('.card').forEach(card => {
+            observer.observe(card);
+        });
+    });
+</script>
+{% endblock %}
 {% endblock %}

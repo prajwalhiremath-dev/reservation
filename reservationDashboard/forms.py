@@ -1,14 +1,113 @@
 from django import forms
 from .models import Reservation, AllowedReservationPeriod
 from datetime import timedelta  # If you implement duration checks
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+User = get_user_model()
+
+class CustomUserCreationForm(UserCreationForm):
+    """
+    Custom registration form with email field and custom styling
+    """
+    email = forms.EmailField(
+        required=True,
+        widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Enter your email'})
+    )
+    
+    class Meta(UserCreationForm.Meta):
+        model = User
+        fields = ('username', 'email', 'password1', 'password2')
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Add Bootstrap classes to all fields
+        for field in self.fields:
+            self.fields[field].widget.attrs.update({'class': 'form-control'})
+            
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if User.objects.filter(email=email).exists():
+            raise forms.ValidationError("This email is already registered.")
+        return email
+
+class CustomAuthenticationForm(AuthenticationForm):
+    """
+    Custom login form with styled widgets
+    """
+    username = forms.CharField(
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Username'})
+    )
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Passcode'})
+    )
 
 
-class ReservationForm(forms.ModelForm):
-    class Meta:
+
+class PasswordChangeForm(forms.Form):
+    current_password = forms.CharField(
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter current password'
+        })
+    )
+    new_password = forms.CharField(
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter new password'
+        })
+    )
+    confirm_password = forms.CharField(
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Confirm new password'
+        })
+    )
+
+    def __init__(self, user, *args, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_current_password(self):
+        current_password = self.cleaned_data.get('current_password')
+        if not self.user.check_password(current_password):
+            raise ValidationError('Current password is incorrect.')
+        return current_password
+
+    def clean(self):
+        cleaned_data = super().clean()
+        new_password = cleaned_data.get('new_password')
+        confirm_password = cleaned_data.get('confirm_password')
+
+        if new_password and confirm_password:
+            if new_password != confirm_password:
+                raise ValidationError('New passwords do not match.')
+            
+            # Password validation
+            if len(new_password) < 8:
+                raise ValidationError('Password must be at least 8 characters long.')
+            if not any(char.isupper() for char in new_password):
+                raise ValidationError('Password must contain at least one uppercase letter.')
+            if not any(char.islower() for char in new_password):
+                raise ValidationError('Password must contain at least one lowercase letter.')
+            if not any(char.isdigit() for char in new_password):
+                raise ValidationError('Password must contain at least one number.')
+            if not any(char in '!@#$%^&*(),.?":{}|<>' for char in new_password):
+                raise ValidationError('Password must contain at least one special character.')
+
+            try:
+                validate_password(new_password, self.user)
+            except ValidationError as e:
+                raise ValidationError(e.messages)
+
+        return cleaned_data
+
+class ReservationForm(forms.ModelForm): 
+    class Meta: #Updated Reservation form to work with authenticated users
         model = Reservation
-        fields = ['user', 'testbed', 'reservation_type', 'start_time', 'end_time', 'software_image', 'devices', 'comments']
+        fields = [ 'testbed', 'reservation_type', 'start_time', 'end_time', 'software_image', 'devices', 'comments']
         widgets = {
-            'user': forms.Select(attrs={'class': 'form-select'}),
             'testbed': forms.Select(attrs={'class': 'form-select'}),
             'reservation_type': forms.Select(attrs={'class': 'form-select'}),
             'start_time': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
@@ -19,6 +118,7 @@ class ReservationForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)  # Get the authenticated user
         self.is_update = kwargs.pop('is_update', False)
         super().__init__(*args, **kwargs)
         if self.is_update:
@@ -51,6 +151,14 @@ class ReservationForm(forms.ModelForm):
             raise forms.ValidationError("At least one device must be selected.")
 
         return cleaned_data
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if self.user and not instance.pk:  # If it's a new reservation
+            instance.user = self.user
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance
 
 
 
