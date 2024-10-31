@@ -30,7 +30,9 @@ urlpatterns = [
     path('get-all-testbeds/', views.get_all_testbeds, name='get_all_testbeds'),
     path('maintenance/', views.maintenance, name='maintenance'),
     path('about/', views.about, name='about'),
-
+    path('api/reservations/<int:reservation_id>/request-deletion/', views.create_deletion_request, name='create_deletion_request'),
+    path('api/deletion-requests/<int:request_id>/handle/', views.handle_deletion_request, name='handle_deletion_request'),
+    path('api/deletion-requests/', views.get_deletion_requests, name='get_deletion_requests'),
 
 
 ]

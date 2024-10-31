@@ -4,7 +4,7 @@
 
 
 {% block content %}
-
+{% csrf_token %}
 
 <div class="container mb-4">
     <div class="row align-items-end mb-2">
@@ -98,8 +98,10 @@
           <form id="editReservationForm">
             <input type="hidden" id="reservationId" name="reservationId">
             <div class="mb-3">
-              <label for="editUser" class="form-label">User</label>
-              <select id="editUser" name="user" class="form-select" required></select>
+                <label class="form-label">User</label>
+                <select id="editUser" name="user" class="form-select">
+                    <!-- Will be populated dynamically -->
+                </select>
             </div>
             <div class="mb-3">
                 <label for="editType" class="form-label">Reservation Type</label>
@@ -134,13 +136,37 @@
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
           <button type="button" class="btn btn-primary" id="updateReservation">Update</button>
           <!-- <button type="button" class="btn btn-danger" id="deleteReservation">Delete</button> -->
+          <button type="button" class="btn btn-danger me-auto" onclick="requestDeletion()">
+            Request Delete
+        </button>
         </div>
       </div>
     </div>
 </div>
 
 
-
+<!-- Add this after your existing reservation modal -->
+<div class="modal fade" id="deletionRequestModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Request Reservation Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Reason for Deletion</label>
+                    <textarea class="form-control" id="deletionReason" rows="3" 
+                              placeholder="Please provide a reason for deletion request"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="submitDeletionRequest">Submit Request</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 
 {% endblock %}
@@ -149,6 +175,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+// Add right after your existing variable declarations at the top
+let deletionRequestModal = null;
+let currentReservationId = null;
+
 document.addEventListener('DOMContentLoaded', function() {
     const reservationTable = document.getElementById('reservation-table');
     const dateHeader = document.getElementById('date-header');
@@ -161,6 +191,80 @@ document.addEventListener('DOMContentLoaded', function() {
     const showTableButton = document.getElementById('show-table');
     const dateDisplay = document.getElementById('date-display');
 
+
+
+    // Just initialize the deletion modal
+    const deletionRequestModal = new bootstrap.Modal(document.getElementById('deletionRequestModal'));
+    let currentReservationId = null;
+
+    // Add the deletion request functions
+    window.requestDeletion = function() {
+        currentReservationId = document.getElementById('reservationId').value;
+        console.log('Requesting deletion for reservation:', currentReservationId);
+
+        // Close reservation modal - use the existing modal variable
+        modal.hide();
+        
+        // Clear previous reason if any
+        document.getElementById('deletionReason').value = '';
+        
+        // Show deletion request modal
+        setTimeout(() => {
+            deletionRequestModal.show();
+        }, 500);
+    };
+
+    window.submitDeletionRequest = function() {
+        const reason = document.getElementById('deletionReason').value;
+        
+        if (!reason.trim()) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Required',
+                text: 'Please provide a reason for deletion.'
+            });
+            return;
+        }
+
+        fetch(`/api/reservations/${currentReservationId}/request-deletion/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ reason: reason })
+        })
+        .then(response => response.json())
+        .then(data => {
+            deletionRequestModal.hide();
+            
+            if (data.status === 'success') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: 'Deletion request submitted successfully. You can check the status in your profile.'
+                }).then(() => {
+                    fetchReservations();
+                });
+            } else {
+                throw new Error(data.message || 'Failed to submit deletion request');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: error.message || 'An error occurred while submitting the request.'
+            });
+        });
+    };
+
+    // Add event listener for deletion submit button
+    document.getElementById('submitDeletionRequest').addEventListener('click', function(e) {
+        e.preventDefault();
+        submitDeletionRequest();
+    });
 
     let allTestbeds = []; // Global variable to store all testbeds
 
@@ -390,6 +494,9 @@ function fetchAllTestbeds() {
     function updateReservation(reservationId, formData) {
         const plainFormData = Object.fromEntries(formData.entries());
         plainFormData.devices = formData.getAll('devices');
+        plainFormData.user = formData.get('user');  // Make sure this field exists
+
+        console.log('Update Data:', plainFormData);  // Debug log
 
         fetch(`{% url "update_reservation" reservation_id=0 %}`.replace('0', reservationId), {
             method: 'POST',
@@ -490,38 +597,43 @@ function fetchAllTestbeds() {
         return cookieValue;
     }
 
-    if (deleteButton) {
-        deleteButton.addEventListener('click', function() {
-            const reservationId = document.getElementById('reservationId').value;
+    // if (deleteButton) {
+    //     deleteButton.addEventListener('click', function() {
+    //         const reservationId = document.getElementById('reservationId').value;
             
-            if (confirm('Are you sure you want to delete this reservation?')) {
-                const csrftoken = getCookie('csrftoken');
+    //         if (confirm('Are you sure you want to delete this reservation?')) {
+    //             const csrftoken = getCookie('csrftoken');
 
-                fetch(`{% url "delete_reservation" reservation_id=0 %}`.replace('0', reservationId), {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrftoken
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        modal.hide();
-                        fetchReservations();
-                    } else {
-                        console.error('Delete failed:', data.error);
-                        alert('Failed to delete reservation. Please try again.');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error deleting reservation:', error);
-                    alert('An error occurred while deleting the reservation.');
-                });
-            }
-        });
-    } else {
-        console.error('Delete button not found in the DOM');
-    }
+    //             fetch(`{% url "delete_reservation" reservation_id=0 %}`.replace('0', reservationId), {
+    //                 method: 'POST',
+    //                 headers: {
+    //                     'X-CSRFToken': csrftoken
+    //                 }
+    //             })
+    //             .then(response => response.json())
+    //             .then(data => {
+    //                 if (data.status === 'success') {
+    //                     modal.hide();
+    //                     fetchReservations();
+    //                 } else {
+    //                     console.error('Delete failed:', data.error);
+    //                     alert('Failed to delete reservation. Please try again.');
+    //                 }
+    //             })
+    //             .catch(error => {
+    //                 console.error('Error deleting reservation:', error);
+    //                 alert('An error occurred while deleting the reservation.');
+    //             });
+    //         }
+    //     });
+    // } else {
+    //     console.error('Delete button not found in the DOM');
+    // }
+
+
+    // Add these functions for deletion requests
+
+
 
     initializeDateRange();
     // Initialize the page

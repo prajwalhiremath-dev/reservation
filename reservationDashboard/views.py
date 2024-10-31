@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponseBadRequest
-from .models import User, Family, Testbed, Device, Software, Reservation, AllowedReservationPeriod
+from .models import User, Family, Testbed, Device, Software, Reservation, AllowedReservationPeriod, DeletionRequest
 from .forms import ReservationForm, CustomAuthenticationForm, CustomUserCreationForm, PasswordChangeForm
 from django.core.exceptions import ValidationError
 from django.utils.dateparse import parse_datetime
@@ -21,6 +21,8 @@ from django.contrib.auth import login, authenticate, logout, update_session_auth
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth.hashers import check_password
+from django.db.models import Q
+from django.views.decorators.csrf import ensure_csrf_cookie
 import logging
 logger = logging.getLogger(__name__)
 
@@ -176,11 +178,13 @@ def index(request):
 def make_reservation(request):
     if request.method == 'POST':
         try:
-            form = ReservationForm(request.POST, user=request.user)
+            form = ReservationForm(request.POST, is_update=False)  # Remove request_user parameter
             if form.is_valid():
                 try:
                     with transaction.atomic():
                         reservation = form.save(commit=False)
+                        # Set the logged-in user
+                        reservation.user = request.user  # Set the logged-in user
                         
                         if not AllowedReservationPeriod.is_period_allowed(reservation.start_time, reservation.end_time):
                             return JsonResponse({'success': False, 'error': "Reservation is not within allowed period."})
@@ -202,11 +206,11 @@ def make_reservation(request):
             logger.error(f"Unexpected error in make_reservation: {str(e)}\n{traceback.format_exc()}")
             return JsonResponse({'success': False, 'error': 'An unexpected error occurred. Please try again.'}, status=500)
     else:
-        form = ReservationForm(user=request.user)
+        form = ReservationForm(is_update=False)  # Remove request_user parameter
  
     context = {
         'form': form,
-        'users': User.objects.all(),
+        'current_user': request.user,  # Add current user to context   #'users': User.objects.all(),
         'families': Family.objects.all(),
         'testbeds': Testbed.objects.all(),
         'devices': Device.objects.all(),
@@ -369,11 +373,25 @@ def update_reservation(request, reservation_id):
                     'status': 'error',
                     'message': 'Invalid JSON data',
                 }, status=400)
+            print("Received data:", data)  # Debug log
+
+            # Ensure user field is properly handled
+            if 'user' in data:
+                try:
+                    user_id = int(data['user'])
+                    User.objects.get(id=user_id)  # Verify user exists
+                except (ValueError, User.DoesNotExist):
+                    return JsonResponse({
+                        'status': 'error',
+                        'message': 'Invalid user selected'
+                    }, status=400)
+
 
             data['testbed'] = reservation.testbed.id
             
             if 'devices' in data and not isinstance(data['devices'], list):
                 data['devices'] = [data['devices']]
+
 
             form = ReservationForm(data, instance=reservation, is_update=True)
             if form.is_valid():
@@ -383,6 +401,10 @@ def update_reservation(request, reservation_id):
                     raise ValidationError("Updated reservation is not within allowed period.")
                 
                 updated_reservation._devices_to_check = form.cleaned_data['devices']
+
+                # Explicitly set user if it's in the form
+                if 'user' in form.cleaned_data:
+                    updated_reservation.user = form.cleaned_data['user']
                 
                 updated_reservation.save()
                 form.save_m2m()
@@ -419,7 +441,8 @@ def update_reservation(request, reservation_id):
                     'changes': changes,
                     'updated_data': {
                         'software_image': new_data['software_image'],
-                        'devices': list(new_data['devices'])
+                        'devices': list(new_data['devices']),
+                        'user': new_data['user']
                     }
                 })
             else:
@@ -447,6 +470,7 @@ def update_reservation(request, reservation_id):
             'status': 'error',
             'message': 'An unexpected error occurred. Please try again later.',
         }, status=500)
+
 
 def send_webex_notification(message):
     try:
@@ -543,3 +567,205 @@ def maintenance(request):
 def about(request):
 
     return render(request, 'base/about.html')
+
+@login_required
+def create_deletion_request(request, reservation_id):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            reason = data.get('reason')
+            
+            if not reason:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Reason is required'
+                }, status=400)
+
+            reservation = get_object_or_404(Reservation, id=reservation_id)
+
+            # Check if start time has passed
+            if timezone.now() >= reservation.start_time:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Cannot request deletion after reservation has started'
+                }, status=400)
+            
+            # Check if there's already a pending request
+            existing_request = DeletionRequest.objects.filter(
+                reservation=reservation,
+                status='PENDING'
+            ).exists()
+            
+            if existing_request:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'A deletion request for this reservation is already pending'
+                }, status=400)
+
+            deletion_request = DeletionRequest.objects.create(
+                reservation=reservation,
+                requester=request.user,
+                reason=reason
+            )
+
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Deletion request submitted successfully'
+            })
+
+        except Exception as e:
+            return JsonResponse({
+                'status': 'error',
+                'message': str(e)
+            }, status=500)
+
+@login_required
+def handle_deletion_request(request, request_id):
+    if request.method == 'POST':
+        try:
+            if not request.user.is_staff:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Only administrators can handle deletion requests'
+                }, status=403)
+
+            deletion_request = get_object_or_404(DeletionRequest, id=request_id)
+            data = json.loads(request.body)
+            
+            status = data.get('status')
+            comment = data.get('comment', '')
+
+            if status not in ['APPROVED', 'REJECTED']:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Invalid status'
+                }, status=400)
+            
+            # Store reservation details before deletion
+            reservation_details = {
+                'testbed': deletion_request.reservation.testbed.name,
+                'devices': [d.name for d in deletion_request.reservation.devices.all()],
+                'start_time': deletion_request.reservation.start_time,
+                'end_time': deletion_request.reservation.end_time,
+                'requester': deletion_request.requester.username
+            }
+
+            # Handle the request (this will delete the reservation if approved)
+            deletion_request.handle_request(request.user, status, comment)
+
+            # Send Webex notification if approved
+            if status == 'APPROVED':
+                devices_list = ', '.join(reservation_details['devices'])
+                notification_message = (
+                    f"Reservation Deletion Approved\n\n"
+                    f"- Testbed: {reservation_details['testbed']}\n"
+                    f"- Devices: {devices_list}\n"
+                    f"- Start Time: {reservation_details['start_time']}\n"
+                    f"- End Time: {reservation_details['end_time']}\n"
+                    f"- Originally Reserved by: {reservation_details['requester']}\n"
+                    f"- Deletion Approved by: {request.user.username}\n"
+                    f"- Admin Comment: {comment or 'No comment provided'}\n\n"
+                    f"These resources are now available for reservation."
+                )
+                send_webex_notification(notification_message)
+
+            return JsonResponse({
+                'status': 'success',
+                'message': f'Request {status.lower()}'
+            })
+
+        except Exception as e:
+            return JsonResponse({
+                'status': 'error',
+                'message': str(e)
+            }, status=500)
+
+@login_required
+@ensure_csrf_cookie
+def get_deletion_requests(request):
+    """Get deletion requests for the profile page"""
+    try:
+        # logger.info(f"get_deletion_requests accessed by: {request.user.username}")
+        # logger.info(f"Is authenticated: {request.user.is_authenticated}")
+        # logger.info(f"Is staff: {request.user.is_staff}")
+        
+        if not request.user.is_authenticated:
+            logger.error("User is not authenticated")
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+
+        if request.user.is_staff:
+            requests = DeletionRequest.objects.select_related(
+                'requester', 
+                'reservation', 
+                'reservation__user', 
+                'reservation__testbed'
+            ).all()
+            logger.info(f"Admin user {request.user.username} - Found {requests.count()} requests")
+        else:
+            logger.info(f"Processing for normal user: {request.user.username}")
+            
+            # # Get user's own requests
+            # own_requests = DeletionRequest.objects.filter(requester=request.user)
+            # logger.info(f"User's own requests count: {own_requests.count()}")
+            
+            # # Get user's reservation requests
+            # reservation_requests = DeletionRequest.objects.filter(reservation__user=request.user)
+            # logger.info(f"User's reservation requests count: {reservation_requests.count()}")
+            
+            # Combine both types of requests
+            requests = DeletionRequest.objects.select_related(
+                'requester', 
+                'reservation', 
+                'reservation__user', 
+                'reservation__testbed'
+            ).filter(
+                Q(requester=request.user) | 
+                Q(reservation__user=request.user)
+            ).distinct()
+            
+            # logger.info(f"Total requests for user: {requests.count()}")
+            # logger.info(f"SQL Query: {requests.query}")
+
+        data = []
+        for req in requests:
+            request_data = {
+                'id': req.id,
+                'requester': req.requester.username,
+                'reason': req.reason,
+                'status': req.status,
+                'created_at': req.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'admin_comment': req.admin_comment or '',
+                'admin': req.admin.username if req.admin else None
+            }
+
+            if req.reservation:
+                request_data.update({
+                    'reservation_id': req.reservation.id,
+                    'testbed': req.reservation.testbed.name,
+                    'reservation_user': req.reservation.user.username
+                })
+            elif req.reservation_details:
+                request_data.update({
+                    'reservation_id': None,
+                    'testbed': req.reservation_details.get('testbed_name', 'Deleted'),
+                    'reservation_user': req.reservation_details.get('user', 'Unknown')
+                })
+            else:
+                request_data.update({
+                    'reservation_id': None,
+                    'testbed': 'Unknown',
+                    'reservation_user': 'Unknown'
+                })
+            
+            data.append(request_data)
+            # logger.info(f"Added request data for request ID: {req.id}")
+
+        # logger.info(f"Returning {len(data)} requests for user {request.user.username}")
+        return JsonResponse(data, safe=False)
+        
+    except Exception as e:
+        logger.error(f"Error in get_deletion_requests: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'error': True,
+            'message': str(e)
+        }, status=500)

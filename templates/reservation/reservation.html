@@ -15,9 +15,9 @@
         <form method="post" id="reservationForm">
             {% csrf_token %}
             <div class="row">
-                <div class="form-group col">
-                    <label class="form-label" for="{{ form.user.id_for_label }}">User</label>
-                    {{ form.user }}
+                <div class="form-group">
+                    <label class="form-label">User</label>
+                    <input type="text" class="form-control" value="{{ current_user.username }}" readonly>
                 </div>
                 <div class="form-group col">
                     <label class="form-label" for="family">Family</label>

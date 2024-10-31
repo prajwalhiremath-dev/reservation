@@ -1,5 +1,5 @@
 from django import forms
-from .models import Reservation, AllowedReservationPeriod
+from .models import Reservation, AllowedReservationPeriod, DeletionRequest
 from datetime import timedelta  # If you implement duration checks
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import get_user_model
@@ -103,27 +103,40 @@ class PasswordChangeForm(forms.Form):
 
         return cleaned_data
 
-class ReservationForm(forms.ModelForm): 
-    class Meta: #Updated Reservation form to work with authenticated users
+class ReservationForm(forms.ModelForm):
+    class Meta:
         model = Reservation
-        fields = [ 'testbed', 'reservation_type', 'start_time', 'end_time', 'software_image', 'devices', 'comments']
+        fields = ['testbed', 'reservation_type', 'start_time', 'end_time', 
+                 'software_image', 'devices', 'comments']
         widgets = {
             'testbed': forms.Select(attrs={'class': 'form-select'}),
             'reservation_type': forms.Select(attrs={'class': 'form-select'}),
             'start_time': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
             'end_time': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
-            'software_image': forms.Select(attrs={'class': 'form-select'}),
+            'software_image': forms.Select(attrs={'class': 'form-select', 'required': True}),
             'devices': forms.SelectMultiple(attrs={'class': 'form-select'}),
             'comments': forms.Textarea(attrs={'class': 'form-control', 'rows': 5}),
         }
 
     def __init__(self, *args, **kwargs):
-        self.user = kwargs.pop('user', None)  # Get the authenticated user
         self.is_update = kwargs.pop('is_update', False)
+        # self.request_user = kwargs.pop('request_user', None)  # Get the logged-in user
         super().__init__(*args, **kwargs)
+        
+         # For new reservations, don't show user field as it will be set to logged-in user
         if self.is_update:
-            del self.fields['testbed']
-        self.fields['devices'].required = True  # Make devices selection required
+            # Add user field for updates only
+            self.fields['user'] = forms.ModelChoiceField(
+                queryset=User.objects.all(),
+                widget=forms.Select(attrs={'class': 'form-select'}),
+                required=True,
+                to_field_name='id'  # Important: use ID for the field value
+            )
+            # Remove testbed field for updates
+            if 'testbed' in self.fields:
+                del self.fields['testbed']
+
+        self.fields['devices'].required = True
 
     def clean(self):
         cleaned_data = super().clean()
@@ -131,38 +144,68 @@ class ReservationForm(forms.ModelForm):
         end_time = cleaned_data.get('end_time')
 
         if self.is_update:
-            # Ensure testbed is not changed during update
             cleaned_data['testbed'] = self.instance.testbed
+
+            # Validate user selection
+            if 'user' in cleaned_data:
+                try:
+                    user_id = cleaned_data['user'].id
+                    user = User.objects.get(id=user_id)
+                    cleaned_data['user'] = user
+                except User.DoesNotExist:
+                    raise forms.ValidationError("Selected user does not exist")
         
         if start_time and end_time:
-            # Check if the reservation is within allowed periods
             if not AllowedReservationPeriod.is_period_allowed(start_time, end_time):
                 raise forms.ValidationError("Reservation is not within allowed period.")
 
-            # Check if end time is after start time
             if end_time <= start_time:
                 raise forms.ValidationError("End time must be after start time.")
 
-            # You can add more custom validations here if needed
-            # For example, check if the duration is within a certain limit
-            # if (end_time - start_time) > timedelta(hours=24):
-            #     raise forms.ValidationError("Reservation cannot exceed 24 hours.")
         if not cleaned_data.get('devices'):
             raise forms.ValidationError("At least one device must be selected.")
 
         return cleaned_data
+
     def save(self, commit=True):
         instance = super().save(commit=False)
-        if self.user and not instance.pk:  # If it's a new reservation
-            instance.user = self.user
+        
         if commit:
             instance.save()
             self.save_m2m()
+            
+            # If this was an update and the user field was changed
+            if self.is_update and 'user' in self.changed_data:
+                # The webex notification is handled in the view
+                pass
+                
         return instance
 
+class DeletionRequestForm(forms.ModelForm):
+    class Meta:
+        model = DeletionRequest
+        fields = ['reason']
+        widgets = {
+            'reason': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Please provide a reason for deletion'
+            })
+        }
 
-
-
-
+class HandleDeletionRequestForm(forms.ModelForm):
+    class Meta:
+        model = DeletionRequest
+        fields = ['status', 'admin_comment']
+        widgets = {
+            'status': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'admin_comment': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Add a comment (optional)'
+            })
+        }
     
     

@@ -193,3 +193,51 @@ class AllowedReservationPeriod(models.Model):
             end_datetime__gte=end_datetime
         )
         return allowed_periods.exists()
+
+class DeletionRequest(models.Model):
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected')
+    ]
+
+    reservation = models.ForeignKey(Reservation, on_delete=models.SET_NULL, null=True, related_name='deletion_requests')
+    # Add fields to store reservation details
+    reservation_details = models.JSONField(null=True, blank=True)  # Store reservation details before deletion
+    requester = models.ForeignKey(User, on_delete=models.CASCADE, related_name='deletion_requests')
+    admin = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='handled_requests')
+    reason = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    admin_comment = models.TextField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        if self.reservation:
+            return f"Delete request for {self.reservation} by {self.requester}"
+        return f"Delete request (Approved) by {self.requester} - {self.reservation_details.get('testbed_name', 'Unknown')}"
+        
+    def handle_request(self, admin, status, comment=None):
+        """Handle the deletion request"""
+        self.admin = admin
+        self.status = status
+        self.admin_comment = comment
+        if status == 'APPROVED' and self.reservation:
+            # Store reservation details before deleting
+            self.reservation_details = {
+                'testbed_name': self.reservation.testbed.name,
+                'devices': list(self.reservation.devices.values_list('name', flat=True)),
+                'start_time': self.reservation.start_time.isoformat(),
+                'end_time': self.reservation.end_time.isoformat(),
+                'user': self.reservation.user.username,
+                'reservation_type': self.reservation.reservation_type,
+                'software_image': self.reservation.software_image.image if self.reservation.software_image else None,
+            }
+            # Delete the reservation
+            self.reservation.delete()
+            self.reservation = None  # Set to None since it's deleted
+            
+        self.save()

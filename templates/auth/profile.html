@@ -1,10 +1,10 @@
-{% extends 'base/base.html' %}
-{% load static %}
-
+{% extends 'base/base.html' %} 
+{% load static %} 
 {% block content %}
+
 <div class="container py-5">
     <div class="row">
-        <!-- User Information Card -->
+        <!-- Profile Information Card -->
         <div class="col-md-4 mb-4">
             <div class="card">
                 <div class="card-header">
@@ -12,14 +12,13 @@
                 </div>
                 <div class="card-body">
                     <div class="d-flex flex-column align-items-center text-center mb-4">
-                        <!-- Initials Avatar -->
                         <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white" 
                              style="width: 100px; height: 100px; font-size: 2.5rem; font-weight: bold;">
                             {{ user.username|slice:":2"|upper }}
                         </div>
                         <div class="mt-3">
                             <h4>{{ user.username }}</h4>
-                            <p class="text-muted">{{ user.email }}</p>
+                            <p>{{ user.email }}</p>
                         </div>
                     </div>
                     <hr>
@@ -55,46 +54,357 @@
                             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editProfileModal">
                                 Edit Profile
                             </button>
-                            <a href="{% url 'change_password' %}" class="btn btn-warning">
-                                Change Passcode
-                            </a>
+                            <a href="{% url 'change_password' %}" class="btn btn-warning">Change Passcode</a>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Rest of your profile template remains the same -->
-        <!-- ... -->
-
-        <!-- Simplified Edit Profile Modal -->
-        <div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="editProfileModalLabel">Edit Profile</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <!-- Deletion Requests Card -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        Deletion Requests <span id="requestCount" class="badge bg-primary">0</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="deletionRequestsTable">
+                            <thead>
+                                <tr>
+                                    <th>Testbed</th>
+                                    <th>Reservation User</th>
+                                    <th>Request Date</th>
+                                    <th>Reason</th>
+                                    <th>Status</th>
+                                    {% if user.is_staff %}
+                                    <th>Requester</th>
+                                    <th>Actions</th>
+                                    {% endif %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Will be populated by JavaScript -->
+                            </tbody>
+                        </table>
                     </div>
-                    <form method="post" action="{% url 'update_profile' %}">
-                        {% csrf_token %}
-                        <div class="modal-body">
-                            <div class="mb-3">
-                                <label for="username" class="form-label">Username</label>
-                                <input type="text" class="form-control" id="username" name="username" value="{{ user.username }}" required>
-                            </div>
-                            <div class="mb-3">
-                                <label for="email" class="form-label">Email</label>
-                                <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}" required>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                            <button type="submit" class="btn btn-primary">Save Changes</button>
-                        </div>
-                    </form>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Edit Profile Modal -->
+<div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editProfileModalLabel">Edit Profile</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{% url 'update_profile' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" value="{{ user.username }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Handle Request Modal -->
+{% if user.is_staff %}
+<div class="modal fade" id="handleRequestModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Handle Deletion Request</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="adminComment" class="form-label">Admin Comment</label>
+                    <textarea id="adminComment" class="form-control" rows="3" 
+                        placeholder="Add your comment here (optional)"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-danger" onclick="handleRequest('REJECTED')">Reject</button>
+                <button type="button" class="btn btn-success" onclick="handleRequest('APPROVED')">Approve</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize modal only if it exists (for admin users)
+        let handleRequestModal = null;
+        const modalElement = document.getElementById('handleRequestModal');
+        if (modalElement) {
+            handleRequestModal = new bootstrap.Modal(modalElement);
+        }
+        
+        let currentRequestId = null;
+        let refreshInterval = null;  // Track the refresh interval
+    
+        function startRefreshInterval() {
+            // Clear any existing interval
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+            // Start new interval
+            refreshInterval = setInterval(loadDeletionRequests, 60000);
+        }
+    
+        function loadDeletionRequests() {
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            const tbody = document.querySelector('#deletionRequestsTable tbody');
+            const isAdmin = {% if user.is_staff %}true{% else %}false{% endif %};
+            const columnCount = isAdmin ? 7 : 5;
+            
+            // Show loading state
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="${columnCount}" class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+    
+            fetch('{% url "get_deletion_requests" %}', {
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    return response.json().then(err => Promise.reject(err));
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Received data:', data);
+                
+                if (data.error) {
+                    throw new Error(data.message || 'An error occurred');
+                }
+    
+                document.getElementById('requestCount').textContent = data.length;
+                tbody.innerHTML = '';
+                
+                if (data.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="${columnCount}" class="text-center">
+                                No deletion requests found
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+    
+                data.forEach(request => {
+                    const tr = document.createElement('tr');
+                    tr.className = getStatusRowClass(request.status);
+                    
+                    let rowHtml = `
+                        <td>${request.testbed || 'N/A'}</td>
+                        <td>${escapeHtml(request.reservation_user || 'N/A')}</td>
+                        <td>${new Date(request.created_at).toLocaleString()}</td>
+                        <td>
+                            <div class="text-wrap" style="max-width: 200px;">
+                                ${escapeHtml(request.reason)}
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge bg-${getStatusBadgeColor(request.status)}">
+                                ${request.status}
+                            </span>
+                            ${request.admin_comment ? 
+                                `<i class="fas fa-info-circle ms-1" 
+                                    data-bs-toggle="tooltip" 
+                                    data-bs-html="true"
+                                    title="Admin comment: ${escapeHtml(request.admin_comment)}"></i>` 
+                                : ''
+                            }
+                        </td>`;
+    
+                    if (isAdmin) {
+                        rowHtml += `
+                            <td>${escapeHtml(request.requester)}</td>
+                            <td>
+                                ${request.status === 'PENDING' ? 
+                                    `<button class="btn btn-sm btn-primary" 
+                                         onclick="showHandleModal('${request.id}')">
+                                        Handle
+                                    </button>` : 
+                                    `<small class="text-muted">
+                                        ${request.admin ? `Handled by ${escapeHtml(request.admin)}` : ''}
+                                    </small>`
+                                }
+                            </td>`;
+                    }
+                    
+                    tr.innerHTML = rowHtml;
+                    tbody.appendChild(tr);
+                });
+    
+                // Initialize tooltips
+                const tooltips = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+                tooltips.forEach(tooltip => {
+                    try {
+                        new bootstrap.Tooltip(tooltip);
+                    } catch (error) {
+                        console.error('Error initializing tooltip:', error);
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error loading deletion requests:', error);
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="${columnCount}" class="text-center text-danger">
+                            Error loading deletion requests: ${error.message || 'Unknown error'}
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+    
+        window.showHandleModal = function(requestId) {
+            if (!handleRequestModal) {
+                console.error('Modal not initialized');
+                return;
+            }
+            currentRequestId = requestId;
+            const commentElement = document.getElementById('adminComment');
+            if (commentElement) {
+                commentElement.value = '';
+            }
+            handleRequestModal.show();
+        }
+    
+        window.handleRequest = function(status) {
+            const commentElement = document.getElementById('adminComment');
+            const comment = commentElement ? commentElement.value : '';
+            
+            fetch(`/api/deletion-requests/${currentRequestId}/handle/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    status: status,
+                    comment: comment
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (handleRequestModal) {
+                    handleRequestModal.hide();
+                }
+                if (data.status === 'success') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success',
+                        text: `Request ${status.toLowerCase()} successfully`
+                    }).then(() => {
+                        loadDeletionRequests();
+                    });
+                } else {
+                    throw new Error(data.message || 'Failed to handle request');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                if (handleRequestModal) {
+                    handleRequestModal.hide();
+                }
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message || 'An error occurred while handling the request.'
+                });
+            });
+        }
+    
+        function getStatusBadgeColor(status) {
+            switch(status) {
+                case 'PENDING': return 'warning';
+                case 'APPROVED': return 'success';
+                case 'REJECTED': return 'danger';
+                default: return 'secondary';
+            }
+        }
+    
+        function getStatusRowClass(status) {
+            switch(status) {
+                case 'PENDING': return 'table-warning';
+                case 'APPROVED': return 'table-success';
+                case 'REJECTED': return 'table-danger';
+                default: return '';
+            }
+        }
+    
+        function escapeHtml(unsafe) {
+            if (!unsafe) return '';
+            return unsafe
+                .toString()
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    
+        // Initial load and refresh setup
+        loadDeletionRequests();
+        startRefreshInterval();
+    
+        // Handle visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                if (refreshInterval) {
+                    clearInterval(refreshInterval);
+                    refreshInterval = null;
+                }
+            } else {
+                loadDeletionRequests();  // Immediate refresh when becoming visible
+                startRefreshInterval();   // Restart the interval
+            }
+        });
+    });
+</script>
 {% endblock %}
