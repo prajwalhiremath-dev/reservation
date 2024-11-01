@@ -97,7 +97,7 @@
                         id="specialPages">
                         <li class="nav-item"><a
                               class="nav-link "
-                              href="{% url 'maintenance' %}">Testbed Details</a></li>
+                              href="{% url 'testbed:testbed_overview' %}">Testbed Overview</a></li>
                         <li class="nav-item"><a
                               class="nav-link "
                               href="{% url 'maintenance' %}">Testbed Utilization</a></li>
@@ -220,7 +220,8 @@
            '/reservation/': 'Reservation',
            '/reservation-table/': 'Reservation Table',
            '/maintenance/': 'Maintenance',
-           '/about/': 'About'
+           '/about/': 'About',
+           '/testbed/': 'Testbed Overview'
        };
    
        const breadcrumbTitle = document.querySelector('.breadcrumb-title small');

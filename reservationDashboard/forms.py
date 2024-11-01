@@ -115,7 +115,7 @@ class ReservationForm(forms.ModelForm):
             'end_time': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
             'software_image': forms.Select(attrs={'class': 'form-select', 'required': True}),
             'devices': forms.SelectMultiple(attrs={'class': 'form-select'}),
-            'comments': forms.Textarea(attrs={'class': 'form-control', 'rows': 5}),
+            'comments': forms.Textarea(attrs={'class': 'form-control', 'rows': 1}),
         }
 
     def __init__(self, *args, **kwargs):
