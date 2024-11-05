@@ -1,50 +1,705 @@
 {% extends "base/base.html" %}
-{% block title %}Quick Insights{% endblock %}
-{% block h3 %} {% endblock %}
-{% block caption %}{% endblock  %}
+
+{% block h3 %}Quick Insights{% endblock %}
+{% block caption %}A Day's Analysis{% endblock %}
 
 {% block content %}
-<div class="container-fluid d-flex flex-column justify-content-center align-items-center text-center">
-    
-    <!-- Lottie animation -->
-    <script src="https://unpkg.com/@dotlottie/player-component@latest/dist/dotlottie-player.mjs" type="module"></script> 
-    <dotlottie-player 
-        src="https://lottie.host/18556d5a-0ad9-4a07-9ec6-a4877b02337c/8JZaX7aSGu.json" 
-        background="transparent" 
-        speed="1" 
-        style="width: 600px; height: 600px;" 
-        loop 
-        autoplay>
-    </dotlottie-player>
-    
-    <!-- Headline -->
-    <h1 class="mt-4" style="font-size: 2.5rem; font-weight: 700; color: #333;">The Quick Insight is Under Development</h1>
-    
-    <!-- Caption -->
-    <p class="mt-3 mb-5" style="font-size: 1.25rem; color: #666;">
-        We're crafting an intuitive and powerful testbed reservation system with analytical widgets to deliver quick insights and interactive graphical analysis. Stay tuned for exciting updates!
-    </p>
+<div class="container-fluid">
+    <!-- Top Stats Cards Row -->
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2 text-muted">Total Reservations</h6>
+                            <h2 class="card-title mb-0" id="totalReservations">0</h2>
+                        </div>
+                        <div class="bg-primary bg-opacity-10 rounded-circle p-3">
+                            <i class="fas fa-calendar fa-2x text-primary"></i>
+                        </div>
+                    </div>
+                    <p class="card-text text-muted mt-3 mb-0"><small>Today's bookings</small></p>
+                </div>
+            </div>
+        </div>
 
-    <!-- Stylish Button (Optional) -->
-    <a href="#" class="btn btn-primary btn-lg mb-3 pb-2" style="animation: pulse 1.5s infinite;">Notify Me When Ready</a>
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2 text-muted">Active Devices</h6>
+                            <h2 class="card-title mb-0" id="activeDevices">0</h2>
+                        </div>
+                        <div class="bg-success bg-opacity-10 rounded-circle p-3">
+                            <i class="fas fa-microchip fa-2x text-success"></i>
+                        </div>
+                    </div>
+                    <p class="card-text text-muted mt-3 mb-0"><small>Currently in use</small></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2 text-muted">Utilization Rate</h6>
+                            <h2 class="card-title mb-0" id="utilizationRate">0%</h2>
+                        </div>
+                        <div class="bg-info bg-opacity-10 rounded-circle p-3">
+                            <i class="fas fa-chart-line fa-2x text-info"></i>
+                        </div>
+                    </div>
+                    <p class="card-text text-muted mt-3 mb-0"><small>Average today</small></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title">Reservation Types</h5>
+                    <div class="chart-container" style="position: relative; height:300px;">
+                        <canvas id="reservationTypesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title">Software Image Usage</h5>
+                    <div class="chart-container" style="position: relative; height:300px;">
+                        <canvas id="softwareUsageChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Hours Chart -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title">User Reservation Hours</h5>
+                    <div class="chart-container" style="position: relative; height:300px;">
+                        <canvas id="userHoursChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Device Availability Accordion -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="accordion" id="deviceAccordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                data-bs-target="#deviceAvailabilityContent">
+                            Device Availability
+                        </button>
+                    </h2>
+                    <div id="deviceAvailabilityContent" class="accordion-collapse collapse" data-bs-parent="#deviceAccordion">
+                        <div class="accordion-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Device</th>
+                                            <th>Status</th>
+                                            <th>Next Available</th>
+                                            <th>Free Hours</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="deviceAvailabilityTable">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
-<!-- Animation for Button -->
-<style>
-@keyframes pulse {
-    0% {
-        transform: scale(1);
-        box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7);
-    }
-    70% {
-        transform: scale(1.05);
-        box-shadow: 0 0 30px 20px rgba(0, 123, 255, 0);
-    }
-    100% {
-        transform: scale(1);
-        box-shadow: 0 0 0 0 rgba(0, 123, 255, 0);
-    }
-}
-</style>
+<!-- User's Reservations Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="accordion" id="userReservationsAccordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" 
+                            data-bs-target="#userReservationsContent">
+                        Your Reservations Today
+                        <span id="reservationCount" class="badge bg-primary rounded-pill ms-2">0</span>
+                    </button>
+                </h2>
+                <div id="userReservationsContent" class="accordion-collapse collapse show" data-bs-parent="#userReservationsAccordion">
+                    <div class="accordion-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Testbed</th>
+                                        <th>Start Time</th>
+                                        <th>End Time</th>
+                                        <th>Type</th>
+                                        <th>Duration</th>
+                                        <th>Status</th>
+                                        
+                                    </tr>
+                                </thead>
+                                <tbody id="userReservationsTable">
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="noReservationsMessage" class="text-center text-muted py-4" style="display: none;">
+                            <i class="fas fa-calendar-times fa-3x mb-3"></i>
+                            <p>You don't have any reservations for today.</p>
+                            <a href="/reservation/" class="btn btn-primary btn-sm">
+                                <i class="fas fa-plus-circle"></i> Make a Reservation
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const charts = {};
+    const CHART_COLORS = {
+        Integration: 'rgba(48, 135, 82, 1)',
+        Priority: 'rgba(255, 50, 66, 1)',
+        Regression: 'rgba(47, 112, 255, 1)',
+        defaultColors: [
+            '#4e79a7', '#f28e2c', '#e15759', '#76b7b2', '#59a14f',
+            '#edc949', '#af7aa1', '#ff9da7', '#9c755f', '#bab0ab'
+        ]
+    };
+    
+    const STATUS_COLORS = {
+        Upcoming: 'info',
+        Active: 'success',
+        Completed: 'secondary'
+    };
+    
+    function initializeCharts() {
+        // Reservation Types Chart
+        const reservationTypesCtx = document.getElementById('reservationTypesChart').getContext('2d');
+        charts.reservationTypes = new Chart(reservationTypesCtx, {
+            type: 'doughnut',
+            data: {
+                labels: [],
+                datasets: [{
+                    data: [],
+                    backgroundColor: [],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    
+        // Software Usage Chart
+        const softwareUsageCtx = document.getElementById('softwareUsageChart').getContext('2d');
+        charts.softwareUsage = new Chart(softwareUsageCtx, {
+            type: 'doughnut',
+            data: {
+                labels: [],
+                datasets: [{
+                    data: [],
+                    backgroundColor: CHART_COLORS.defaultColors,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    
+        // User Hours Chart
+        // const userHoursCtx = document.getElementById('userHoursChart').getContext('2d');
+        // charts.userHours = new Chart(userHoursCtx, {
+        //     type: 'bar',
+        //     data: {
+        //         labels: [],
+        //         datasets: [{
+        //             label: 'Reservation Hours',
+        //             data: [],
+        //             backgroundColor: 'rgba(54, 162, 235, 0.8)',
+        //             borderWidth: 1
+        //         }]
+        //     },
+        //     options: {
+        //         responsive: true,
+        //         maintainAspectRatio: false,
+        //         scales: {
+        //             y: {
+        //                 beginAtZero: true,
+        //                 title: {
+        //                     display: true,
+        //                     text: 'Hours',
+        //                     font: {
+        //                         size: 14,
+        //                         weight: 'bold'
+        //                     }
+        //                 }
+        //             },
+        //             x: {
+        //                 title: {
+        //                     display: true,
+        //                     text: 'Users',
+        //                     font: {
+        //                         size: 14,
+        //                         weight: 'bold'
+        //                     }
+        //                 },
+        //                 // ticks: {
+        //                 //     maxRotation: 0,
+        //                 //     minRotation: 0
+        //                 // }
+                        
+        //             }
+        //         },
+        //         plugins: {
+        //             legend: {
+        //                 display: false
+        //             },
+        //             tooltip: {
+        //                 callbacks: {
+        //                     label: function(context) {
+        //                         return `${context.parsed.y} hours`;
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     }
+        // });
+        const userHoursCtx = document.getElementById('userHoursChart').getContext('2d');
+charts.userHours = new Chart(userHoursCtx, {
+    type: 'bar',
+    data: {
+        labels: [],
+        datasets: [{
+            label: 'Reservation Hours',
+            data: [],
+            backgroundColor: 'rgba(54, 162, 235, 0.8)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: 'Hours',
+                    font: {
+                        size: 14,
+                        weight: 'bold'
+                    }
+                }
+            },
+            x: {
+                title: {
+                    display: true,
+                    text: 'Users',
+                    font: {
+                        size: 14,
+                        weight: 'bold'
+                    }
+                },
+                ticks: {
+                    maxRotation: 45,  // Allow rotation for better fit
+                    minRotation: 45,  // Consistent rotation
+                    autoSkip: true,   // Automatically skip labels if too crowded
+                    maxTicksLimit: 20, // Maximum number of ticks to show
+                    callback: function(index) {
+                        // Truncate long usernames
+                        const label = this.getLabelForValue(index);
+                        const maxLength = 15;
+                        return label.length > maxLength ? 
+                               label.substring(0, maxLength) + '...' : 
+                               label;
+                    }
+                }
+            }
+        },
+        plugins: {
+            legend: {
+                display: false
+            },
+            tooltip: {
+                callbacks: {
+                    title: function(tooltipItems) {
+                        // Show full username in tooltip
+                        return charts.userHours.data.labels[tooltipItems[0].dataIndex];
+                    },
+                    label: function(context) {
+                        return `${context.parsed.y} hours`;
+                    }
+                }
+            }
+        }
+    }
+});
+    }
+    
+    function updateUserReservationsTable(reservations) {
+        const tbody = document.getElementById('userReservationsTable');
+        const noReservationsMessage = document.getElementById('noReservationsMessage');
+        const reservationCount = document.getElementById('reservationCount');
+        
+        if (!tbody) return;
+        
+        if (reservations.length === 0) {
+            tbody.innerHTML = '';
+            if (noReservationsMessage) {
+                noReservationsMessage.style.display = 'block';
+            }
+            if (reservationCount) {
+                reservationCount.textContent = '0';
+            }
+            return;
+        }
+    
+        if (noReservationsMessage) {
+            noReservationsMessage.style.display = 'none';
+        }
+        if (reservationCount) {
+            reservationCount.textContent = reservations.length;
+        }
+    
+        tbody.innerHTML = reservations.map(res => {
+            const startTime = new Date(res.start_time);
+            const endTime = new Date(res.end_time);
+            const duration = (endTime - startTime) / (1000 * 60 * 60);
+            const now = new Date();
+            
+            let status;
+            let statusClass;
+            if (now < startTime) {
+                status = 'Upcoming';
+                statusClass = 'info';
+            } else if (now >= startTime && now <= endTime) {
+                status = 'Active';
+                statusClass = 'success';
+            } else {
+                status = 'Completed';
+                statusClass = 'secondary';
+            }
+    
+            return `
+                <tr>
+                    <td>${res.testbed__name}</td>
+                    <td>${startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                    <td>${endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                    <td>
+                        <span class="badge bg-${
+                            res.reservation_type === 'Integration' ? 'success' :
+                            res.reservation_type === 'Priority' ? 'danger' : 'primary'
+                        }">${res.reservation_type}</span>
+                    </td>
+                    <td>${duration.toFixed(1)} hrs</td>
+                    <td>
+                        <span class="badge bg-${statusClass}">${status}</span>
+                    </td>
+                    
+                </tr>
+            `;
+        }).join('');
+    }
+    
+    function requestDeletion(reservationId) {
+        if (confirm('Are you sure you want to request deletion of this reservation?')) {
+            fetch(`/api/reservations/${reservationId}/request-deletion/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    reason: 'User requested cancellation'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    updateDashboard();
+                    alert('Deletion request submitted successfully');
+                } else {
+                    alert(data.message || 'Failed to submit deletion request');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to submit deletion request');
+            });
+        }
+    }
+    
+    function updateDashboard() {
+        fetch('/get_todays_analytics/')
+            .then(response => response.json())
+            .then(data => {
+                // Update top stats
+                document.getElementById('totalReservations').textContent = data.total_reservations;
+                document.getElementById('activeDevices').textContent = data.active_devices;
+                document.getElementById('utilizationRate').textContent = `${data.utilization_rate}%`;
+    
+                // Update reservation types chart
+                const typeLabels = data.reservation_types.map(t => t.reservation_type);
+                const typeCounts = data.reservation_types.map(t => t.count);
+                const typeColors = typeLabels.map(type => CHART_COLORS[type]);
+                
+                charts.reservationTypes.data.labels = typeLabels;
+                charts.reservationTypes.data.datasets[0].data = typeCounts;
+                charts.reservationTypes.data.datasets[0].backgroundColor = typeColors;
+                charts.reservationTypes.update();
+    
+                // Update software usage chart
+                const softwareLabels = data.software_usage.map(s => s.software_image__image);
+                const softwareCounts = data.software_usage.map(s => s.count);
+                charts.softwareUsage.data.labels = softwareLabels;
+                charts.softwareUsage.data.datasets[0].data = softwareCounts;
+                charts.softwareUsage.update();
+    
+                // Update user hours chart
+                const userLabels = data.user_hours.map(u => u.user__username);
+                const userHours = data.user_hours.map(u => u.total_hours);
+                charts.userHours.data.labels = userLabels;
+                charts.userHours.data.datasets[0].data = userHours;
+                charts.userHours.update();
+    
+                // Update device availability table
+                const deviceTableBody = document.getElementById('deviceAvailabilityTable');
+                deviceTableBody.innerHTML = '';
+                data.device_availability.forEach(device => {
+                    const statusClass = device.status === 'Available' ? 'success' : 'warning';
+                    const row = `
+                        <tr>
+                            <td>${device.name}</td>
+                            <td>
+                                <span class="badge bg-${statusClass} rounded-pill">
+                                    ${device.status}
+                                </span>
+                            </td>
+                            <td>${device.next_available}</td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="progress flex-grow-1" style="height: 8px;">
+                                        <div class="progress-bar bg-${statusClass}" 
+                                             role="progressbar" 
+                                             style="width: ${(device.free_hours/24)*100}%">
+                                        </div>
+                                    </div>
+                                    <span class="ms-2">${device.free_hours} hrs</span>
+                                </div>
+                            </td>
+                            <td>
+                                <a href="/reservation/" 
+                                   class="btn btn-sm btn-outline-primary ${device.status !== 'Available' ? 'disabled' : ''}">
+                                    <i class="fas fa-calendar-plus"></i> Reserve
+                                </a>
+                            </td>
+                        </tr>
+                    `;
+                    deviceTableBody.innerHTML += row;
+                });
+    
+                // Add sorting functionality
+                if (!$.fn.DataTable.isDataTable('#deviceAvailabilityTable')) {
+                    $('#deviceAvailabilityTable').parent('table').DataTable({
+                        pageLength: 10,
+                        order: [[3, 'desc']], // Sort by free hours by default
+                        columnDefs: [
+                            { orderable: false, targets: 4 } // Disable sorting for actions column
+                        ]
+                    });
+                }
+    
+                // Update user reservations table
+                updateUserReservationsTable(data.user_reservations);
+            })
+            .catch(error => {
+                console.error('Error fetching analytics:', error);
+                const notification = `
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        Failed to update dashboard data. Please try again later.
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                `;
+                document.querySelector('.container-fluid').insertAdjacentHTML('afterbegin', notification);
+            });
+    }
+    
+    function addChartAnimation() {
+        const cards = document.querySelectorAll('.card');
+        cards.forEach(card => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            card.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+        });
+    
+        setTimeout(() => {
+            cards.forEach((card, index) => {
+                setTimeout(() => {
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+        }, 100);
+    }
+    
+    function addCardInteractivity() {
+        const cards = document.querySelectorAll('.card');
+        cards.forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.transform = 'translateY(-5px)';
+                card.style.boxShadow = '0 6px 15px rgba(0,0,0,0.1)';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'translateY(0)';
+                card.style.boxShadow = '';
+            });
+        });
+    }
+    
+    // function addRefreshButton() {
+    //     const refreshButton = document.createElement('button');
+    //     refreshButton.className = 'btn btn-outline-primary position-fixed';
+    //     refreshButton.style.bottom = '20px';
+    //     refreshButton.style.right = '20px';
+    //     refreshButton.innerHTML = '<i class="fas fa-sync-alt"></i>';
+    //     refreshButton.addEventListener('click', () => {
+    //         refreshButton.classList.add('rotate-animation');
+    //         updateDashboard().then(() => {
+    //             setTimeout(() => refreshButton.classList.remove('rotate-animation'), 1000);
+    //         });
+    //     });
+    //     document.body.appendChild(refreshButton);
+    // }
+    
+    // Add CSS for animations
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes rotate-animation {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .rotate-animation {
+            animation: rotate-animation 1s linear;
+        }
+        .card {
+            transition: all 0.3s ease;
+        }
+        .progress {
+            background-color: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            transition: width 0.6s ease;
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // Initialize dashboard
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeCharts();
+        updateDashboard();
+        addChartAnimation();
+        addCardInteractivity();
+        // addRefreshButton();
+    
+        // Update every 5 minutes
+        // setInterval(updateDashboard, 300000);
+    
+        // Add tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+</script>
+
+<style>
+    .chart-container {
+        transition: all 0.3s ease;
+    }
+    .chart-container:hover {
+        transform: scale(1.02);
+    }
+    .badge {
+        font-size: 0.85em;
+        padding: 0.35em 0.65em;
+    }
+    .accordion-button:not(.collapsed) {
+        background-color: #f8f9fa;
+        color: #0d6efd;
+    }
+    .accordion-button:focus {
+        box-shadow: none;
+        border-color: rgba(0,0,0,.125);
+    }
+    .table th {
+        font-weight: 600;
+        color: #495057;
+    }
+    .progress {
+        height: 8px;
+    }
+    .accordion-button {
+        padding: 1rem 1.25rem;
+        font-weight: 500;
+    }
+    
+    .btn-group-sm > .btn {
+        padding: 0.25rem 0.5rem;
+    }
+    
+    #noReservationsMessage {
+        color: #6c757d;
+    }
+    
+    #noReservationsMessage i {
+        opacity: 0.5;
+    }
+    
+    .table td, .table th {
+        vertical-align: middle;
+    }
+</style>
+{% endblock %}
 {% endblock %}

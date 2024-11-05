@@ -11,6 +11,7 @@ urlpatterns = [
     path('profile/update/', views.update_profile, name='update_profile'),
     path('change-password/', views.change_password, name='change_password'),
     path("", views.index, name = "index" ),
+    path('get_todays_analytics/', views.get_todays_analytics, name='get_todays_analytics'),
     path('reservation/', views.make_reservation, name='reservation'),
     path('get-testbeds/', views.get_testbeds, name='get_testbeds'),
     path('get-devices/', views.get_devices, name='get_devices'),

@@ -8,7 +8,7 @@ from django.utils.dateparse import parse_datetime
 from datetime import datetime, timedelta
 from django.utils import timezone
 from django.db import transaction
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Count, Sum, F, ExpressionWrapper, fields
 from django.views.decorators.http import require_http_methods
 from django.core.serializers.json import DjangoJSONEncoder
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
@@ -23,6 +23,8 @@ from django.contrib import messages
 from django.contrib.auth.hashers import check_password
 from django.db.models import Q
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django.db.models.functions import TruncHour
+from django.db.models import Count
 import logging
 logger = logging.getLogger(__name__)
 
@@ -172,6 +174,123 @@ def index(request):
         'page_subtitle': 'Testbed Reservation'
     }
     return render(request, 'base/index.html', context=context)
+
+def get_todays_analytics(request):
+    today = timezone.now().date()
+    tomorrow = today + timedelta(days=1)
+    current_time = timezone.now()
+    
+    # Get today's reservations
+    todays_reservations = Reservation.objects.filter(
+        start_time__lt=tomorrow,
+        end_time__gt=current_time
+    )
+    
+    # Get reservation type counts
+    reservation_types = todays_reservations.values('reservation_type').annotate(
+        count=Count('id')
+    )
+    
+    # Get software image usage
+    software_usage = todays_reservations.values('software_image__image').annotate(
+        count=Count('id')
+    ).exclude(software_image__isnull=True)
+    
+    # Get user reservation hours
+    user_hours = todays_reservations.values('user__username').annotate(
+        total_hours=Sum(
+            ExpressionWrapper(
+                F('end_time') - F('start_time'),
+                output_field=fields.DurationField()
+            )
+        )
+    ).order_by('-total_hours')           #[:10]  # Top 10 users
+    
+    # Convert duration to hours
+    for user in user_hours:
+        if user['total_hours']:
+            duration_in_hours = user['total_hours'].total_seconds() / 3600
+            user['total_hours'] = round(duration_in_hours, 1)
+    
+    # Get device availability
+    all_devices = Device.objects.all()
+    device_availability = []
+    
+    for device in all_devices:
+        # Get all reservations that overlap with today
+        device_reservations = device.reservation_set.filter(
+            start_time__lt=tomorrow,
+            end_time__gt=current_time
+        ).order_by('start_time')
+        
+        is_available = True
+        next_available = current_time
+        
+        # Calculate actual free hours considering overlapping periods
+        reserved_periods = []
+        for res in device_reservations:
+            start = max(res.start_time, current_time)
+            end = res.end_time
+            if start < end:
+                reserved_periods.append((start, end))
+                if current_time >= start and current_time < end:
+                    is_available = False
+                    next_available = end
+        
+        # Calculate free hours for next 24 hours
+        free_hours = 24
+        day_end = current_time + timedelta(days=1)
+        
+        for start, end in reserved_periods:
+            if start < day_end:
+                overlap_start = max(current_time, start)
+                overlap_end = min(day_end, end)
+                free_hours -= (overlap_end - overlap_start).total_seconds() / 3600
+        
+        # Determine next available time
+        if not is_available:
+            next_available_str = next_available.strftime("%I:%M %p")
+        else:
+            next_available_str = "Now"
+        
+        device_availability.append({
+            'id': device.id,
+            'name': device.name,
+            'free_hours': round(max(0, free_hours), 1),
+            'next_available': next_available_str,
+            'status': 'Available' if is_available else 'In Use'
+        })
+    
+    # Calculate active devices and utilization rate
+    active_devices = sum(1 for device in device_availability if device['status'] == 'In Use')
+    total_devices = len(device_availability)
+    utilization_rate = (active_devices / total_devices * 100) if total_devices > 0 else 0
+    
+    # Get user's reservations
+    user_reservations = []
+    if not request.user.is_anonymous:
+        user_reservations = todays_reservations.filter(
+            user=request.user
+        ).values(
+            'testbed__name', 
+            'start_time', 
+            'end_time', 
+            'reservation_type'
+        )
+    
+    data = {
+        'total_reservations': todays_reservations.count(),
+        'active_devices': active_devices,
+        'utilization_rate': round(utilization_rate, 1),
+        'reservation_types': list(reservation_types),
+        'software_usage': list(software_usage),
+        'user_hours': list(user_hours),
+        'device_availability': device_availability,
+        'user_reservations': list(user_reservations)
+    }
+    
+    return JsonResponse(data)
+
 
 @login_required
 @transaction.atomic
